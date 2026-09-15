@@ -190,6 +190,16 @@ elif args[:3] == ["plugin", "uninstall", "pstack@pstack-local"]:
         cache_file.write_text("tampered\n")
         self.assertNotEqual(self.execute("--check").returncode, 0)
 
+    def test_cli_failure_keeps_existing_skills(self) -> None:
+        skill = self.home / ".agents/skills/alpha"
+        skill.mkdir(parents=True)
+        (skill / "SKILL.md").write_text("keep on failure\n")
+        (self.bin / "claude").write_text("#!/bin/sh\nexit 3\n")
+        result = self.execute("--replace")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(skill.is_symlink())
+        self.assertEqual((skill / "SKILL.md").read_text(), "keep on failure\n")
+
     def test_relocated_checkout_updates_links(self) -> None:
         result = self.execute()
         self.assertEqual(result.returncode, 0, result.stderr)

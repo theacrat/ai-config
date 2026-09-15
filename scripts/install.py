@@ -450,7 +450,7 @@ def check(paths: Paths) -> int:
                 if item.name not in allowed
             )
     stable = paths.data_root / "pstack"
-    if not same_tree(bundle, stable):
+    if stable.is_symlink() or not same_tree(bundle, stable):
         problems.append("stable pstack bundle is missing or stale")
     if paths.cursor_plugin.is_symlink() or not same_tree(stable, paths.cursor_plugin):
         problems.append("Cursor pstack bundle is missing or incomplete")
@@ -526,7 +526,7 @@ def install(paths: Paths, replace: bool) -> int:
         )
     stable = paths.data_root / "pstack"
     paths.data_root.mkdir(parents=True, exist_ok=True)
-    if not same_tree(bundle, stable):
+    if stable.is_symlink() or not same_tree(bundle, stable):
         if stable.exists() or stable.is_symlink():
             backup.move(stable)
         copy_tree_atomic(bundle, stable)
