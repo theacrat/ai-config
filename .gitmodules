@@ -1,0 +1,3 @@
+[submodule "plugins/pstack"]
+	path = plugins/pstack
+	url = https://github.com/theacrat/pstack-generic.git
