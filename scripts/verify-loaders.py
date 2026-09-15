@@ -6,6 +6,7 @@ import json
 import os
 import selectors
 import subprocess
+import sys
 import tempfile
 import time
 from pathlib import Path
@@ -103,6 +104,7 @@ def main():
             "pstack_codex_probe", pstack / "scripts/check-codex.py"
         )
         probe = importlib.util.module_from_spec(spec)
+        sys.dont_write_bytecode = True
         spec.loader.exec_module(probe)
         codex = probe.list_skills(env, workspace, workspace / "codex.json")
         names = {
@@ -120,19 +122,22 @@ def main():
         )
         opencode_env = env | {"OPENCODE_DISABLE_DEFAULT_PLUGINS": "1"}
         opencode_env.pop("OPENCODE_DISABLE_EXTERNAL_SKILLS", None)
-        result = subprocess.run(
-            ["opencode", "--pure", "debug", "skill"],
-            cwd=workspace,
-            env=opencode_env,
-            capture_output=True,
-            text=True,
-            check=True,
-            timeout=45,
-        )
+        output = workspace / "opencode.json"
+        with output.open("w") as stdout:
+            subprocess.run(
+                ["opencode", "--pure", "debug", "skill"],
+                cwd=workspace,
+                env=opencode_env,
+                stdout=stdout,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=True,
+                timeout=45,
+            )
         require_names(
             "OpenCode",
             standalone | bundled,
-            {skill["name"] for skill in json.loads(result.stdout)},
+            {skill["name"] for skill in json.loads(output.read_text())},
         )
     print("Cursor: run install.sh --check, then reload and inspect Customize > Skills.")
 

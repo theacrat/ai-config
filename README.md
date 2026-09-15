@@ -38,6 +38,10 @@ Run the installer again if you move the checkout. It recreates links for the new
 
 Edit personal skills here, then commit and push. Make upstream upgrades here too, review the diff, and commit the new snapshots or submodule revision before pulling them onto another device. Use this repository to update this selection. `npx skills update` manages a separate lockfile and can overwrite linked files.
 
+For standalone upgrades, change the relevant full commit SHAs in `sources.json`, then run `python3 scripts/vendor-skills.py --refresh --update-hashes`. Review skill changes and upstream licence changes before committing. `--refresh` without `--update-hashes` restores the recorded versions, and `--check` verifies their recorded hashes offline. Keep personal edits under `personal/skills/` so an upstream refresh does not replace them.
+
+For pstack, fetch in `plugins/pstack`, check out the reviewed upstream commit, then commit the changed submodule pointer here. The other sibling plugins in that repository are not installed automatically.
+
 Application settings, model choices, authentication, MCP connections and session histories stay local to each device. This repository synchronises skills and the pstack bundle.
 
 ## Installation layout
@@ -62,3 +66,11 @@ python3 scripts/verify-loaders.py
 ```
 
 This asks Codex, Claude and OpenCode to list their loaded skills without sending a model request. Cursor's files are checked by the installer; inspect its running UI after reload to confirm local imports are enabled.
+
+Installer development checks:
+
+```sh
+python3 -m unittest discover -s tests
+uv run ruff check scripts tests
+uv run ruff format --check scripts tests
+```

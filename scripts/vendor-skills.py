@@ -12,13 +12,12 @@ import hashlib
 import io
 import json
 import os
-from pathlib import Path
 import shutil
 import subprocess
 import tarfile
 import tempfile
+from pathlib import Path
 from typing import Any
-
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "sources.json"
@@ -90,11 +89,15 @@ def load_manifest() -> dict[str, Any]:
             if not isinstance(source.get(field), str) or not source[field]:
                 raise VendorError(f"{name} source needs {field}")
         commit = source["commit"]
-        if len(commit) != 40 or any(character not in "0123456789abcdef" for character in commit):
+        if len(commit) != 40 or any(
+            character not in "0123456789abcdef" for character in commit
+        ):
             raise VendorError(f"{name} source commit must be a full lowercase SHA")
         recorded_hash = source.get("sha256")
         if recorded_hash is not None and recorded_hash != "":
-            if len(recorded_hash) != 64 or any(character not in "0123456789abcdef" for character in recorded_hash):
+            if len(recorded_hash) != 64 or any(
+                character not in "0123456789abcdef" for character in recorded_hash
+            ):
                 raise VendorError(f"{name} source sha256 must be a lowercase digest")
     return manifest
 
@@ -109,7 +112,9 @@ def safe_member_path(member_name: str, source_path: str) -> Path | None:
     try:
         relative = member.relative_to(source)
     except ValueError as exc:
-        raise VendorError(f"git archive contained unexpected path: {member_name}") from exc
+        raise VendorError(
+            f"git archive contained unexpected path: {member_name}"
+        ) from exc
     if relative.is_absolute() or ".." in relative.parts:
         raise VendorError(f"git archive path escapes destination: {member_name}")
     return relative
@@ -122,7 +127,9 @@ def fetch_repo(repository: str, commit: str, directory: Path) -> None:
     run("git", "cat-file", "-e", f"{commit}^{{commit}}", cwd=directory)
 
 
-def archive_skill(repo_directory: Path, commit: str, source_path: str, destination: Path) -> None:
+def archive_skill(
+    repo_directory: Path, commit: str, source_path: str, destination: Path
+) -> None:
     archive = subprocess.run(
         ("git", "archive", "--format=tar", commit, source_path),
         cwd=repo_directory,
@@ -169,7 +176,9 @@ def apply_compatibility(entry: dict[str, Any], staging: Path) -> None:
 
 
 def materialize(
-    entry: dict[str, Any], repository_cache: dict[tuple[str, str], Path], temp_root: Path
+    entry: dict[str, Any],
+    repository_cache: dict[tuple[str, str], Path],
+    temp_root: Path,
 ) -> tuple[str, str]:
     source = entry["source"]
     cache_key = (source["repository"], source["commit"])
@@ -224,13 +233,17 @@ def check(manifest: dict[str, Any]) -> int:
 
 
 def refresh(manifest: dict[str, Any], update_hashes: bool) -> int:
-    entries = [entry for entry in manifest["skills"] if destination_path(entry) is not None]
+    entries = [
+        entry for entry in manifest["skills"] if destination_path(entry) is not None
+    ]
     with tempfile.TemporaryDirectory(prefix="vendor-skills-") as temporary_name:
         temporary_root = Path(temporary_name)
         repository_cache: dict[tuple[str, str], Path] = {}
         staged_hashes: dict[str, tuple[str, str]] = {}
         for entry in entries:
-            source_hash, bundle_hash = materialize(entry, repository_cache, temporary_root)
+            source_hash, bundle_hash = materialize(
+                entry, repository_cache, temporary_root
+            )
             expected_source = entry["source"].get("sha256")
             if expected_source and source_hash != expected_source and not update_hashes:
                 raise VendorError(
@@ -266,8 +279,14 @@ def refresh(manifest: dict[str, Any], update_hashes: bool) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     action = parser.add_mutually_exclusive_group(required=True)
-    action.add_argument("--check", action="store_true", help="verify materialized skills against recorded hashes")
-    action.add_argument("--refresh", action="store_true", help="materialize the exact pinned commits")
+    action.add_argument(
+        "--check",
+        action="store_true",
+        help="verify materialized skills against recorded hashes",
+    )
+    action.add_argument(
+        "--refresh", action="store_true", help="materialize the exact pinned commits"
+    )
     parser.add_argument(
         "--update-hashes",
         action="store_true",
