@@ -4,12 +4,11 @@
 import importlib.util
 import json
 import os
-from pathlib import Path
 import selectors
 import subprocess
 import tempfile
 import time
-
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -22,19 +21,35 @@ def claude_skills(env, workspace):
     }
     env.pop("CLAUDECODE", None)
     command = [
-        "claude", "--print", "--input-format", "stream-json",
-        "--output-format", "stream-json", "--verbose", "--no-session-persistence",
-        "--setting-sources", "user", "--strict-mcp-config",
-        "--mcp-config", '{"mcpServers":{}}',
+        "claude",
+        "--print",
+        "--input-format",
+        "stream-json",
+        "--output-format",
+        "stream-json",
+        "--verbose",
+        "--no-session-persistence",
+        "--setting-sources",
+        "user",
+        "--strict-mcp-config",
+        "--mcp-config",
+        '{"mcpServers":{}}',
     ]
     with (workspace / "claude.stderr").open("w") as stderr:
         process = subprocess.Popen(
-            command, env=env, cwd=workspace, stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE, stderr=stderr, text=True, bufsize=1,
+            command,
+            env=env,
+            cwd=workspace,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=stderr,
+            text=True,
+            bufsize=1,
         )
         try:
             request = {
-                "type": "control_request", "request_id": "skills-discovery",
+                "type": "control_request",
+                "request_id": "skills-discovery",
                 "request": {"subtype": "initialize", "hooks": None},
             }
             process.stdin.write(json.dumps(request) + "\n")
@@ -91,23 +106,32 @@ def main():
         spec.loader.exec_module(probe)
         codex = probe.list_skills(env, workspace, workspace / "codex.json")
         names = {
-            skill["name"] for entry in codex["data"]
-            for skill in entry["skills"] if skill["enabled"]
+            skill["name"]
+            for entry in codex["data"]
+            for skill in entry["skills"]
+            if skill["enabled"]
         }
         require_names("Codex", standalone | {f"pstack:{n}" for n in bundled}, names)
         claude = claude_skills(env, workspace)
         require_names(
-            "Claude", standalone | {f"pstack:{n}" for n in bundled},
+            "Claude",
+            standalone | {f"pstack:{n}" for n in bundled},
             {skill["name"] for skill in claude["commands"]},
         )
         opencode_env = env | {"OPENCODE_DISABLE_DEFAULT_PLUGINS": "1"}
         opencode_env.pop("OPENCODE_DISABLE_EXTERNAL_SKILLS", None)
         result = subprocess.run(
-            ["opencode", "--pure", "debug", "skill"], cwd=workspace,
-            env=opencode_env, capture_output=True, text=True, check=True, timeout=45,
+            ["opencode", "--pure", "debug", "skill"],
+            cwd=workspace,
+            env=opencode_env,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=45,
         )
         require_names(
-            "OpenCode", standalone | bundled,
+            "OpenCode",
+            standalone | bundled,
             {skill["name"] for skill in json.loads(result.stdout)},
         )
     print("Cursor: run install.sh --check, then reload and inspect Customize > Skills.")
