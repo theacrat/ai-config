@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
@@ -74,7 +75,7 @@ elif args[:3] == ["plugin", "install", "pstack@pstack-local"]:
     destination = claude / "plugins/cache/pstack-local/pstack/1"
     destination.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(stable, destination, dirs_exist_ok=True)
-    (claude / "plugins/installed_plugins.json").write_text(json.dumps({"plugins":{"pstack@pstack-local":[{"installPath":str(destination)}]}}))
+    (claude / "plugins/installed_plugins.json").write_text(json.dumps({"plugins":{"pstack@pstack-local":[{"scope":"user","installPath":str(destination)}]}}))
     (claude / "plugins/known_marketplaces.json").write_text(json.dumps({"pstack-local":{"installLocation":str(stable)}}))
     (claude / "settings.json").write_text(json.dumps({"enabledPlugins":{"pstack@pstack-local":True}}))
 elif args[:3] == ["plugin", "uninstall", "pstack@pstack-local"]:
@@ -131,9 +132,50 @@ elif args[:3] == ["plugin", "uninstall", "pstack@pstack-local"]:
         self.assertEqual((backups[0] / "0/SKILL.md").read_text(), "old\n")
         self.assertEqual((backups[0] / "1").read_text(), "stale lock\n")
         self.assertEqual(existing.resolve(), (self.checkout / "skills/alpha").resolve())
+        commands_before = self.log.read_text()
         second = self.execute()
         self.assertEqual(second.returncode, 0, second.stderr)
         self.assertEqual(len(list(backup_root.iterdir())), 1)
+        self.assertEqual(self.log.read_text(), commands_before)
+
+    def test_locally_replaced_skill_is_preserved(self) -> None:
+        self.assertEqual(self.execute().returncode, 0)
+        skill = self.home / ".agents/skills/alpha"
+        skill.unlink()
+        skill.mkdir()
+        (skill / "SKILL.md").write_text("personal replacement\n")
+        result = self.execute()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual((skill / "SKILL.md").read_text(), "personal replacement\n")
+        result = self.execute("--replace")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        manifests = list(
+            (self.home / ".local/share/ai-config/backups").glob("*/manifest.json")
+        )
+        entries = [
+            entry for file in manifests for entry in json.loads(file.read_text())
+        ]
+        backup = next(
+            Path(entry["backup"])
+            for entry in entries
+            if entry["original"] == str(skill)
+        )
+        self.assertEqual((backup / "SKILL.md").read_text(), "personal replacement\n")
+
+    def test_replacement_removes_opencode_duplicate_and_preserves_system_skills(
+        self,
+    ) -> None:
+        old = self.home / ".config/opencode/skills/alpha"
+        old.mkdir(parents=True)
+        (old / "SKILL.md").write_text("old OpenCode skill\n")
+        system = self.home / ".codex/skills/.system/keep"
+        system.mkdir(parents=True)
+        (system / "SKILL.md").write_text("system\n")
+        result = self.execute("--replace")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(old.exists())
+        self.assertEqual((system / "SKILL.md").read_text(), "system\n")
+        self.assertEqual(self.execute("--check").returncode, 0)
 
     def test_check_detects_missing_link_and_tampered_native_cache(self) -> None:
         result = self.execute()

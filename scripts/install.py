@@ -189,13 +189,11 @@ class Backup:
         self.manifest.append({"original": str(path), "backup": str(target)})
         write_json(self.root / "manifest.json", self.manifest)
 
-    def finish(self) -> None:
-        if self.root is not None:
-            write_json(self.root / "manifest.json", self.manifest)
-
 
 def is_expected_link(path: Path, source: Path) -> bool:
-    return path.is_symlink() and path.resolve(strict=False) == source
+    return path.is_symlink() and path.resolve(strict=False) == source.resolve(
+        strict=False
+    )
 
 
 def prepare_link(
@@ -211,6 +209,7 @@ def prepare_link(
     if is_expected_link(path, source):
         return
     if path in state_paths and path.is_symlink():
+        moves.append(path)
         return
     if replace:
         moves.append(path)
@@ -248,7 +247,7 @@ def clean_skill_dirs(
                 and item in state_paths
             ):
                 continue
-            if destination != paths.codex_home / "skills" and item.name in desired:
+            if destination in paths.link_destinations and item.name in desired:
                 continue
             if item in state_paths:
                 if item.is_symlink():
@@ -298,21 +297,10 @@ def cli_preflight() -> None:
         raise InstallError("required CLI(s) missing: " + ", ".join(missing))
 
 
-def find_nested(value: Any, predicate: Any) -> bool:
-    if isinstance(value, dict):
-        if predicate(value):
-            return True
-        return any(find_nested(child, predicate) for child in value.values())
-    if isinstance(value, list):
-        return any(find_nested(child, predicate) for child in value)
-    return False
-
-
 def codex_ok(paths: Paths, stable: Path) -> tuple[bool, str]:
     cache = paths.codex_home / "plugins" / "cache" / "pstack-local" / "pstack"
-    if not cache.is_dir() or not any(
-        same_tree(stable, version) for version in cache.iterdir() if version.is_dir()
-    ):
+    version = read_json(stable / ".codex-plugin/plugin.json", {}).get("version")
+    if not version or not same_tree(stable, cache / version):
         return False, "Codex plugin cache is missing or incomplete"
     try:
         import tomllib
@@ -332,7 +320,7 @@ def codex_ok(paths: Paths, stable: Path) -> tuple[bool, str]:
     marketplace = (
         marketplaces.get("pstack-local", {}) if isinstance(marketplaces, dict) else {}
     )
-    if not enabled or marketplace.get("source") != str(stable):
+    if not enabled or Path(marketplace.get("source", "")).resolve() != stable.resolve():
         return (
             False,
             "Codex config does not enable pstack or point its marketplace at the stable bundle",
@@ -350,7 +338,9 @@ def claude_ok(paths: Paths, stable: Path) -> tuple[bool, str]:
     installed_paths = [
         Path(entry.get("installPath", ""))
         for entry in entries
-        if isinstance(entry, dict) and entry.get("installPath")
+        if isinstance(entry, dict)
+        and entry.get("installPath")
+        and entry.get("scope") == "user"
     ]
     if not any(path.is_dir() and same_tree(stable, path) for path in installed_paths):
         return False, "Claude plugin cache is missing or incomplete"
@@ -360,7 +350,7 @@ def claude_ok(paths: Paths, stable: Path) -> tuple[bool, str]:
         return False, "Claude settings do not enable pstack"
     known = read_json(paths.claude_plugins / "known_marketplaces.json", {})
     marketplace = known.get("pstack-local", {}) if isinstance(known, dict) else {}
-    if marketplace.get("installLocation") != str(stable):
+    if Path(marketplace.get("installLocation", "")).resolve() != stable.resolve():
         return False, "Claude marketplace registry does not point at the stable bundle"
     return True, "Claude native plugin is healthy"
 
@@ -377,11 +367,16 @@ def claude_installed(paths: Paths) -> bool:
         else []
     )
     return any(
-        isinstance(entry, dict) and entry.get("installPath") for entry in entries
+        isinstance(entry, dict)
+        and entry.get("installPath")
+        and entry.get("scope") == "user"
+        for entry in entries
     )
 
 
-def native_install(paths: Paths, stable: Path, _previous_digest: str | None) -> None:
+def native_install(paths: Paths, stable: Path) -> None:
+    paths.codex_home.mkdir(parents=True, exist_ok=True)
+    paths.claude_home.mkdir(parents=True, exist_ok=True)
     codex_good, _ = codex_ok(paths, stable)
     claude_good, _ = claude_ok(paths, stable)
     if not codex_good and codex_installed(paths):
@@ -399,10 +394,12 @@ def native_install(paths: Paths, stable: Path, _previous_digest: str | None) -> 
                 "--json",
             ]
         )
-    run_cli(["codex", "plugin", "marketplace", "add", str(stable), "--json"])
-    run_cli(["codex", "plugin", "add", PLUGIN_ID, "--json"])
-    run_cli(["claude", "plugin", "marketplace", "add", str(stable)])
-    run_cli(["claude", "plugin", "install", PLUGIN_ID, "--scope", "user", "--json"])
+    if not codex_good:
+        run_cli(["codex", "plugin", "marketplace", "add", str(stable), "--json"])
+        run_cli(["codex", "plugin", "add", PLUGIN_ID, "--json"])
+    if not claude_good:
+        run_cli(["claude", "plugin", "marketplace", "add", str(stable)])
+        run_cli(["claude", "plugin", "install", PLUGIN_ID, "--scope", "user", "--json"])
     codex_good, codex_message = codex_ok(paths, stable)
     claude_good, claude_message = claude_ok(paths, stable)
     if not codex_good or not claude_good:
@@ -440,10 +437,22 @@ def check(paths: Paths) -> int:
         for name, source in skills.items():
             if not is_expected_link(destination / name, source):
                 problems.append(f"missing or incorrect link: {destination / name}")
+    for destination in paths.cleanup_destinations + (paths.opencode_skills,):
+        allowed = set(skills) if destination in paths.link_destinations else set()
+        if destination == paths.codex_home / "skills":
+            allowed.add(".system")
+        if destination == paths.opencode_skills:
+            allowed.add("pstack")
+        if destination.is_dir():
+            problems.extend(
+                f"unexpected skill entry: {item}"
+                for item in destination.iterdir()
+                if item.name not in allowed
+            )
     stable = paths.data_root / "pstack"
     if not same_tree(bundle, stable):
         problems.append("stable pstack bundle is missing or stale")
-    if not same_tree(stable, paths.cursor_plugin):
+    if paths.cursor_plugin.is_symlink() or not same_tree(stable, paths.cursor_plugin):
         problems.append("Cursor pstack bundle is missing or incomplete")
     if not is_expected_link(paths.opencode_skills / "pstack", stable):
         problems.append("OpenCode pstack skills link is missing or incorrect")
@@ -489,7 +498,20 @@ def install(paths: Paths, replace: bool) -> int:
     ):
         if special.exists() or special.is_symlink():
             if special in prior_paths:
-                continue
+                if special.is_symlink():
+                    target = paths.data_root / "pstack"
+                    if special == paths.opencode_agents / "pstack":
+                        target /= "agents"
+                    if special == paths.cursor_plugin or not is_expected_link(
+                        special, target
+                    ):
+                        moves.append(special)
+                    continue
+                if special == paths.cursor_plugin and (
+                    same_tree(bundle, special)
+                    or tree_digest(special) == state.get("pstack_digest")
+                ):
+                    continue
             if replace:
                 moves.append(special)
             else:
@@ -502,19 +524,20 @@ def install(paths: Paths, replace: bool) -> int:
             "conflicting existing paths (use --replace to back them up):\n"
             + "\n".join(conflicts)
         )
-    for item in stale:
-        remove_path(item)
-    for item in dict.fromkeys(moves):
-        backup.move(item)
     stable = paths.data_root / "pstack"
-    previous_digest = state.get("pstack_digest")
     paths.data_root.mkdir(parents=True, exist_ok=True)
-    copy_tree_atomic(bundle, stable)
+    if not same_tree(bundle, stable):
+        if stable.exists() or stable.is_symlink():
+            backup.move(stable)
+        copy_tree_atomic(bundle, stable)
+    native_install(paths, stable)
+    for item in dict.fromkeys(stale + moves):
+        backup.move(item)
     for destination in paths.link_destinations:
         for name, source in skills.items():
             create_link(destination / name, source)
-    native_install(paths, stable, previous_digest)
-    copy_tree_atomic(stable, paths.cursor_plugin)
+    if not same_tree(stable, paths.cursor_plugin):
+        copy_tree_atomic(stable, paths.cursor_plugin)
     create_link(paths.opencode_skills / "pstack", stable)
     if (stable / "agents").is_dir():
         create_link(paths.opencode_agents / "pstack", stable / "agents")
@@ -539,8 +562,9 @@ def install(paths: Paths, replace: bool) -> int:
             "pstack_digest": tree_digest(stable),
         },
     )
-    backup.finish()
     print(f"installed {len(skills)} skills and pstack")
+    if backup.root:
+        print(f"previous skills backed up at {backup.root}")
     return 0
 
 
