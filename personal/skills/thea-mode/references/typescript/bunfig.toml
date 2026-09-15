@@ -1,0 +1,7 @@
+telemetry = false
+
+[run]
+bun = true
+
+[install]
+minimumReleaseAge = 259200
