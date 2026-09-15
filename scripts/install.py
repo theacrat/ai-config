@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 PLUGIN_ID = "pstack@pstack-local"
+IGNORED_FILES = {".git", "__pycache__", ".DS_Store"}
 
 
 class InstallError(RuntimeError):
@@ -108,7 +109,7 @@ def iter_files(root: Path) -> Iterable[Path]:
     if not root.is_dir():
         return
     for path in sorted(root.rglob("*")):
-        if ".git" in path.relative_to(root).parts:
+        if IGNORED_FILES.intersection(path.relative_to(root).parts):
             continue
         if path.is_file() or path.is_symlink():
             yield path
@@ -271,7 +272,7 @@ def copy_tree_atomic(source: Path, destination: Path) -> None:
     destination.parent.mkdir(parents=True, exist_ok=True)
     temporary = destination.parent / f".{destination.name}.tmp-{uuid.uuid4().hex}"
     shutil.copytree(
-        source, temporary, symlinks=True, ignore=shutil.ignore_patterns(".git")
+        source, temporary, symlinks=True, ignore=shutil.ignore_patterns(*IGNORED_FILES)
     )
     if destination.exists() or destination.is_symlink():
         remove_path(destination)
