@@ -46,6 +46,7 @@ class InstallerTest(unittest.TestCase):
         (bundle / "agents/example.md").write_text("agent\n")
         self.bin = self.temp / "bin"
         self.bin.mkdir()
+        (self.bin / "python3").symlink_to(sys.executable)
         self.log = self.temp / "commands.jsonl"
         self._write_clis()
 
@@ -97,7 +98,7 @@ elif args[:3] == ["plugin", "uninstall", "pstack@pstack-local"]:
                 "XDG_DATA_HOME": str(self.home / ".local/share"),
                 "FAKE_LOG": str(self.log),
                 "STABLE_BUNDLE": str(self.home / ".local/share/ai-config/pstack"),
-                "PATH": str(self.bin) + os.pathsep + env["PATH"],
+                "PATH": str(self.bin),
             }
         )
         return env
@@ -199,6 +200,38 @@ elif args[:3] == ["plugin", "uninstall", "pstack@pstack-local"]:
         self.assertNotEqual(result.returncode, 0)
         self.assertFalse(skill.is_symlink())
         self.assertEqual((skill / "SKILL.md").read_text(), "keep on failure\n")
+
+    def test_missing_clis_skip_native_install_and_check(self) -> None:
+        for missing in (("codex",), ("claude",), ("codex", "claude")):
+            with self.subTest(missing=missing):
+                self._write_clis()
+                for name in missing:
+                    (self.bin / name).unlink()
+                result = self.execute()
+                self.assertEqual(result.returncode, 0, result.stderr)
+                for name in missing:
+                    self.assertIn(name, result.stdout + result.stderr)
+                self.assertTrue((self.home / ".agents/skills/alpha").is_symlink())
+                self.assertTrue(
+                    (
+                        self.home
+                        / ".cursor/plugins/local/pstack/skills/shared/SKILL.md"
+                    ).is_file()
+                )
+                result = self.execute("--check")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                if self.home.exists():
+                    shutil.rmtree(self.home)
+
+    def test_install_after_missing_cli_becomes_available(self) -> None:
+        (self.bin / "claude").unlink()
+        result = self.execute()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self._write_clis()
+        self.assertNotEqual(self.execute("--check").returncode, 0)
+        result = self.execute()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.execute("--check").returncode, 0)
 
     def test_relocated_checkout_updates_links(self) -> None:
         result = self.execute()

@@ -4,7 +4,7 @@ Personal skills shared across Codex, Claude Code, OpenCode and Cursor.
 
 ## Set up another device
 
-Install Git, Python 3.11 or newer, and the Codex and Claude Code CLIs. Sign in to GitHub so you can clone this private repository. macOS and Linux are supported, including WSL on Windows.
+Install Git and Python 3.11 or newer. Sign in to GitHub so you can clone this private repository. macOS and Linux are supported, including WSL on Windows.
 
 ```sh
 git clone --recurse-submodules https://github.com/theacrat/ai-config.git ~/Git/ai-config
@@ -14,6 +14,8 @@ cd ~/Git/ai-config
 ```
 
 `--replace` moves existing user-installed skills into a local backup before installing this selection. The installer keeps system skills, credentials, unrelated plugins and project-local files. Backups and install state live under `~/.local/share/ai-config`, or your `XDG_DATA_HOME` equivalent. Keep the checkout on disk because standalone skills link to it.
+
+The Codex and Claude Code CLIs are optional. If either is missing, installation and `--check` skip its native plugin registration and verification. Shared skills and the Cursor and OpenCode bundles still install. After adding a missing CLI, rerun `./install.sh` to register its plugin. Errors from installed CLIs still fail the install.
 
 Restart Codex, Claude, OpenCode and Cursor after installation. In Cursor, check Customize for pstack. Local plugin imports must be allowed by your organisation. A marketplace pstack installation takes precedence over the local copy. See [Cursor's local plugin rules](https://cursor.com/docs/plugins).
 

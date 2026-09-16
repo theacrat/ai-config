@@ -292,12 +292,6 @@ def run_cli(command: list[str]) -> str:
     return result.stdout
 
 
-def cli_preflight() -> None:
-    missing = [name for name in ("codex", "claude") if shutil.which(name) is None]
-    if missing:
-        raise InstallError("required CLI(s) missing: " + ", ".join(missing))
-
-
 def codex_ok(paths: Paths, stable: Path) -> tuple[bool, str]:
     cache = paths.codex_home / "plugins" / "cache" / "pstack-local" / "pstack"
     version = read_json(stable / ".codex-plugin/plugin.json", {}).get("version")
@@ -376,37 +370,49 @@ def claude_installed(paths: Paths) -> bool:
 
 
 def native_install(paths: Paths, stable: Path) -> None:
-    paths.codex_home.mkdir(parents=True, exist_ok=True)
-    paths.claude_home.mkdir(parents=True, exist_ok=True)
-    codex_good, _ = codex_ok(paths, stable)
-    claude_good, _ = claude_ok(paths, stable)
-    if not codex_good and codex_installed(paths):
-        run_cli(["codex", "plugin", "remove", PLUGIN_ID, "--json"])
-    if not claude_good and claude_installed(paths):
-        run_cli(
-            [
-                "claude",
-                "plugin",
-                "uninstall",
-                PLUGIN_ID,
-                "--scope",
-                "user",
-                "--keep-data",
-                "--json",
-            ]
+    if shutil.which("codex") is None:
+        print(
+            "skipping Codex native plugin installation and verification: codex CLI is unavailable"
         )
-    if not codex_good:
-        run_cli(["codex", "plugin", "marketplace", "add", str(stable), "--json"])
-        run_cli(["codex", "plugin", "add", PLUGIN_ID, "--json"])
-    if not claude_good:
-        run_cli(["claude", "plugin", "marketplace", "add", str(stable)])
-        run_cli(["claude", "plugin", "install", PLUGIN_ID, "--scope", "user", "--json"])
-    codex_good, codex_message = codex_ok(paths, stable)
-    claude_good, claude_message = claude_ok(paths, stable)
-    if not codex_good or not claude_good:
-        raise InstallError(
-            f"native verification failed: {codex_message}; {claude_message}"
+    else:
+        paths.codex_home.mkdir(parents=True, exist_ok=True)
+        codex_good, _ = codex_ok(paths, stable)
+        if not codex_good:
+            if codex_installed(paths):
+                run_cli(["codex", "plugin", "remove", PLUGIN_ID, "--json"])
+            run_cli(["codex", "plugin", "marketplace", "add", str(stable), "--json"])
+            run_cli(["codex", "plugin", "add", PLUGIN_ID, "--json"])
+        codex_good, message = codex_ok(paths, stable)
+        if not codex_good:
+            raise InstallError(f"native verification failed: {message}")
+    if shutil.which("claude") is None:
+        print(
+            "skipping Claude native plugin installation and verification: claude CLI is unavailable"
         )
+    else:
+        paths.claude_home.mkdir(parents=True, exist_ok=True)
+        claude_good, _ = claude_ok(paths, stable)
+        if not claude_good:
+            if claude_installed(paths):
+                run_cli(
+                    [
+                        "claude",
+                        "plugin",
+                        "uninstall",
+                        PLUGIN_ID,
+                        "--scope",
+                        "user",
+                        "--keep-data",
+                        "--json",
+                    ]
+                )
+            run_cli(["claude", "plugin", "marketplace", "add", str(stable)])
+            run_cli(
+                ["claude", "plugin", "install", PLUGIN_ID, "--scope", "user", "--json"]
+            )
+        claude_good, message = claude_ok(paths, stable)
+        if not claude_good:
+            raise InstallError(f"native verification failed: {message}")
 
 
 def check(paths: Paths) -> int:
@@ -461,12 +467,15 @@ def check(paths: Paths) -> int:
         paths.opencode_agents / "pstack", stable / "agents"
     ):
         problems.append("OpenCode pstack agents link is missing or incorrect")
-    good, message = codex_ok(paths, stable)
-    if not good:
-        problems.append(message)
-    good, message = claude_ok(paths, stable)
-    if not good:
-        problems.append(message)
+    for cli, verify in (("codex", codex_ok), ("claude", claude_ok)):
+        if shutil.which(cli) is None:
+            print(
+                f"skipping {cli} native plugin verification: {cli} CLI is unavailable"
+            )
+            continue
+        good, message = verify(paths, stable)
+        if not good:
+            problems.append(message)
     if problems:
         for problem in problems:
             print(problem, file=sys.stderr)
@@ -480,7 +489,6 @@ def install(paths: Paths, replace: bool) -> int:
     bundle = source_bundle(paths)
     state = read_json(paths.state_file, {})
     prior_paths = managed_paths(state)
-    cli_preflight()
     backup = Backup(paths)
     conflicts: list[str] = []
     desired = set(skills)
