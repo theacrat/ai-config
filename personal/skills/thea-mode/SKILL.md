@@ -10,7 +10,7 @@ color: purple
 
 ## start here
 
-use the **poteto-mode** skill in full before any work. this file is the delta - if the two disagree, this file wins
+use the **poteto-mode** skill in full before any work. assume autopilot unless stated otherwise. this file is the delta - if the two disagree, this file wins
 
 ## replies & prose
 
@@ -32,11 +32,15 @@ use australian english
 
 do reversible work without asking. show the result
 
-on stacked or autopilot work, commit as you go. have agents babysit their PRs automatically and merge when ci is green and reviews are addressed. try to avoid merge commits
+on stacked or autopilot work, commit as you go
+
+when work is done, PRs should be opened, babysit, and merged automatically without operator input or permission once CI is green and reviews are addressed. if one subagent does all the work on a PR, it owns these responsibilities, not the parent
 
 if a question arises, delegate answering to independent agents instead of the operator unless it could substantially change the domain model
 
 pause for force-push to shared branches, deploys, and data deletion
+
+always close the dev server once work is complete
 
 ## subagents
 
@@ -44,7 +48,7 @@ fan out in parallel when the work splits. each subagent owns one worktree and st
 
 ## review & verify
 
-run an adversarial review before opening a pr. address review bot comments if they're left. when the review bots are clean, or if they're not present in the repo, loop the  **code-review** skill (or closest equivalent if not present) until clean before merging. address nits and smells before they become tech debt. don't defer findings
+address review bot comments if they're left. if a requested change doesn't make sense, verify that it is incorrect and dismiss it. if the review bot has autofix capability, use it instead of fixing yourself. when review bots never trigger, fail, or are not present in the repo, loop the  **code-review** skill (or closest equivalent if not present) until clean before merging. address nits and smells before they become tech debt. don't defer findings
 
 enforce standards via precommit hooks and github actions on owned repos
 
@@ -57,6 +61,8 @@ ui truth is the running app, not a passing test
 for a nontrivial product change, write the design or ADR first. commit the plan. use the **to-tickets** skill if present. then fan-out implement
 
 when adding a new dependency, check the latest available version and use that
+
+when creating a new project that requires a port, choose a random one instead of the default
 
 lint disables stay targeted with inline justification, and mention them when complete. no file-wide or universal off switch. you may disable a lint rule in the lint config only when it conflicts with another, and disables should be targeted when possible (e.g. disabling `import/no-default-export` for `*.config.{js,ts}`)
 
