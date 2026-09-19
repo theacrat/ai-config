@@ -17,7 +17,7 @@ cd ~/Git/ai-config
 
 The Codex and Claude Code CLIs are optional. If either is missing, installation and `--check` skip its native plugin registration and verification. Shared skills and the Cursor and OpenCode bundles still install. After adding a missing CLI, rerun `./install.sh` to register its plugin. Errors from installed CLIs still fail the install.
 
-Restart Codex, Claude, OpenCode and Cursor after installation. In Cursor, check Customize for pstack. Local plugin imports must be allowed by your organisation. A marketplace pstack installation takes precedence over the local copy. See [Cursor's local plugin rules](https://cursor.com/docs/plugins).
+Restart Codex, Claude, OpenCode and Cursor after installation. In Cursor, check Customize for pstack, 1password, and cloudflare. Local plugin imports must be allowed by your organisation. A marketplace installation of the same plugin takes precedence over the local copy. See [Cursor's local plugin rules](https://cursor.com/docs/plugins).
 
 ## Sync an existing device
 
@@ -34,6 +34,7 @@ Run the installer again if you move the checkout. It recreates links for the new
 ## What belongs here
 
 - `plugins/pstack/` pins the complete pstack repository as a Git submodule. Keeping the bundle intact preserves its shared docs and agents.
+- `plugins/1password/` and `plugins/cloudflare/` pin those plugin repositories as submodules. The installer copies each one into `~/.cursor/plugins/local/` and links their skills into the shared skill directories.
 - `skills/` contains selected upstream skill snapshots with their supporting files. `sources.json` records revisions and provenance. `licenses/` retains upstream licences.
 - `personal/skills/` holds your editable personal guidance, currently `thea-mode`. Its initial source is recorded in `personal/source.json`.
 - `install.sh` installs this selection and `--check` checks local links, bundle files and native plugin registrations.
@@ -42,18 +43,18 @@ Edit personal skills here, then commit and push. Make upstream upgrades here too
 
 For standalone upgrades, change the relevant full commit SHAs in `sources.json`, then run `python3 scripts/vendor-skills.py --refresh --update-hashes`. Review skill changes and upstream licence changes before committing. `--refresh` without `--update-hashes` restores the recorded versions, and `--check` verifies their recorded hashes offline. Keep personal edits under `personal/skills/` so an upstream refresh does not replace them.
 
-For pstack, fetch in `plugins/pstack`, check out the reviewed upstream commit, then commit the changed submodule pointer here. The other sibling plugins in that repository are not installed automatically.
+For pstack, 1Password, or Cloudflare, fetch in `plugins/<name>`, check out the reviewed upstream commit, then commit the changed submodule pointer here. The other sibling plugins in the pstack repository are not installed automatically.
 
-Application settings, model choices, authentication, MCP connections and session histories stay local to each device. This repository synchronises skills and the pstack bundle.
+Application settings, model choices, authentication, MCP connections and session histories stay local to each device. This repository synchronises skills and the plugin bundles.
 
 ## Installation layout
 
-| App | Standalone skills | pstack |
+| App | Standalone skills | Plugins |
 | --- | --- | --- |
 | Codex | `~/.agents/skills/` | Native `pstack@pstack-local` plugin |
 | Claude Code | `~/.claude/skills/` | Native `pstack@pstack-local` plugin |
-| OpenCode | Shared `~/.agents/skills/` discovery | Complete bundle mounted under `~/.config/opencode/skills/pstack` and agents under `~/.config/opencode/agents/pstack` |
-| Cursor | `~/.cursor/skills/` | Complete local copy at `~/.cursor/plugins/local/pstack` |
+| OpenCode | Shared `~/.agents/skills/` discovery | Complete pstack bundle mounted under `~/.config/opencode/skills/pstack` and agents under `~/.config/opencode/agents/pstack` |
+| Cursor | `~/.cursor/skills/` | Local copies at `~/.cursor/plugins/local/pstack`, `1password`, and `cloudflare` |
 
 The installer retains a complete pstack copy at `~/.local/share/ai-config/pstack` for native marketplace registration and OpenCode mounts. It refreshes native caches when bundle contents change, even if upstream did not bump the plugin version. Environment overrides for Codex, Claude and XDG directories are respected.
 

@@ -246,6 +246,25 @@ elif args[:3] == ["plugin", "uninstall", "pstack@pstack-local"]:
             (relocated / "skills/alpha").resolve(),
         )
 
+    def test_extra_cursor_plugin_is_copied_and_skills_linked(self) -> None:
+        plugin = self.checkout / "plugins/demo"
+        (plugin / ".cursor-plugin").mkdir(parents=True)
+        (plugin / ".cursor-plugin/plugin.json").write_text('{"name":"demo"}\n')
+        (plugin / "skills/beta").mkdir(parents=True)
+        (plugin / "skills/beta/SKILL.md").write_text("beta\n")
+        result = self.execute()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            (self.home / ".agents/skills/beta").resolve(),
+            (plugin / "skills/beta").resolve(),
+        )
+        copied = self.home / ".cursor/plugins/local/demo/skills/beta/SKILL.md"
+        self.assertEqual(copied.read_text(), "beta\n")
+        self.assertFalse((self.home / ".cursor/plugins/local/demo/.git").exists())
+        self.assertEqual(self.execute("--check").returncode, 0)
+        self.assertEqual(self.execute().returncode, 0)
+        self.assertEqual(self.execute("--check").returncode, 0)
+
 
 if __name__ == "__main__":
     unittest.main()
