@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install reviewed skills and the local pstack bundle on this machine."""
+"""Install reviewed skills and the local plugin bundles on this machine."""
 
 from __future__ import annotations
 
@@ -138,18 +138,63 @@ def remove_path(path: Path) -> None:
         shutil.rmtree(path)
 
 
-def discover_skills(paths: Paths) -> dict[str, Path]:
+def skill_dirs(root: Path) -> dict[str, Path]:
     result: dict[str, Path] = {}
+    if not root.is_dir():
+        return result
+    for item in sorted(root.iterdir()):
+        if item.is_dir() and (item / "SKILL.md").is_file():
+            result[item.name] = item.resolve()
+    return result
+
+
+def extra_plugins(paths: Paths) -> tuple[Path, ...]:
+    root = paths.checkout / "plugins"
+    if not root.is_dir():
+        return ()
+    return tuple(
+        item
+        for item in sorted(root.iterdir())
+        if item.is_dir()
+        and item.name != "pstack"
+        and (item / ".cursor-plugin" / "plugin.json").is_file()
+    )
+
+
+def cursor_local_plugin(paths: Paths, plugin: Path) -> Path:
+    return paths.home / ".cursor" / "plugins" / "local" / plugin.name
+
+
+def extra_cursor_plugins(paths: Paths) -> tuple[tuple[Path, Path], ...]:
+    return tuple(
+        (plugin, cursor_local_plugin(paths, plugin)) for plugin in extra_plugins(paths)
+    )
+
+
+def dropped_extra_plugins(
+    paths: Paths,
+    prior_paths: set[Path],
+    extra_locals: tuple[tuple[Path, Path], ...],
+) -> tuple[Path, ...]:
+    keep = {destination for _, destination in extra_locals}
+    keep.add(paths.cursor_plugin)
+    root = paths.home / ".cursor" / "plugins" / "local"
+    return tuple(
+        path
+        for path in sorted(prior_paths)
+        if path.parent == root
+        and path not in keep
+        and (path.exists() or path.is_symlink())
+    )
+
+
+def discover_skills(paths: Paths) -> dict[str, Path]:
     root = paths.checkout / "skills"
-    if root.is_dir():
-        for item in sorted(root.iterdir()):
-            if item.is_dir() and (item / "SKILL.md").is_file():
-                result[item.name] = item.resolve()
-    personal_root = paths.checkout / "personal" / "skills"
-    if personal_root.is_dir():
-        for item in sorted(personal_root.iterdir()):
-            if item.is_dir() and (item / "SKILL.md").is_file():
-                result[item.name] = item.resolve()
+    result = skill_dirs(root)
+    for plugin in extra_plugins(paths):
+        for name, source in skill_dirs(plugin / "skills").items():
+            result.setdefault(name, source)
+    result.update(skill_dirs(paths.checkout / "personal" / "skills"))
     if not result:
         raise InstallError(f"no skills found under {root}")
     return result
@@ -428,6 +473,7 @@ def check(paths: Paths) -> int:
         for destination in paths.link_destinations
         for name in skills
     }
+    extra_locals = extra_cursor_plugins(paths)
     expected_managed.update(
         {
             str(paths.cursor_plugin),
@@ -435,6 +481,7 @@ def check(paths: Paths) -> int:
             str(paths.opencode_agents / "pstack"),
         }
     )
+    expected_managed.update(str(destination) for _, destination in extra_locals)
     for stale in managed_paths(read_json(paths.state_file, {})) - {
         Path(path) for path in expected_managed
     }:
@@ -461,6 +508,9 @@ def check(paths: Paths) -> int:
         problems.append("stable pstack bundle is missing or stale")
     if paths.cursor_plugin.is_symlink() or not same_tree(stable, paths.cursor_plugin):
         problems.append("Cursor pstack bundle is missing or incomplete")
+    for source, destination in extra_locals:
+        if destination.is_symlink() or not same_tree(source, destination):
+            problems.append(f"Cursor {source.name} bundle is missing or incomplete")
     if not is_expected_link(paths.opencode_skills / "pstack", stable):
         problems.append("OpenCode pstack skills link is missing or incorrect")
     if (stable / "agents").is_dir() and not is_expected_link(
@@ -480,7 +530,9 @@ def check(paths: Paths) -> int:
         for problem in problems:
             print(problem, file=sys.stderr)
         return 1
-    print(f"healthy ({len(skills)} skills, pstack {tree_digest(stable)[:12]})")
+    extras = ", ".join(source.name for source, _ in extra_locals)
+    suffix = f", {extras}" if extras else ""
+    print(f"healthy ({len(skills)} skills, pstack {tree_digest(stable)[:12]}{suffix})")
     return 0
 
 
@@ -499,6 +551,7 @@ def install(paths: Paths, replace: bool) -> int:
             prepare_link(
                 destination / name, source, prior_paths, replace, moves, conflicts
             )
+    extra_locals = extra_cursor_plugins(paths)
     clean_skill_dirs(paths, desired, prior_paths, replace, moves, stale, conflicts)
     for special in (
         paths.cursor_plugin,
@@ -525,6 +578,17 @@ def install(paths: Paths, replace: bool) -> int:
                 moves.append(special)
             else:
                 conflicts.append(str(special))
+    for source, destination in extra_locals:
+        if destination.exists() or destination.is_symlink():
+            if destination in prior_paths:
+                if destination.is_symlink() or not same_tree(source, destination):
+                    moves.append(destination)
+                continue
+            if replace:
+                moves.append(destination)
+            else:
+                conflicts.append(str(destination))
+    stale.extend(dropped_extra_plugins(paths, prior_paths, extra_locals))
     lockfile = paths.home / ".agents" / ".skill-lock.json"
     if replace and moves and lockfile.exists():
         moves.append(lockfile)
@@ -547,6 +611,9 @@ def install(paths: Paths, replace: bool) -> int:
             create_link(destination / name, source)
     if not same_tree(stable, paths.cursor_plugin):
         copy_tree_atomic(stable, paths.cursor_plugin)
+    for source, destination in extra_locals:
+        if destination.is_symlink() or not same_tree(source, destination):
+            copy_tree_atomic(source, destination)
     create_link(paths.opencode_skills / "pstack", stable)
     if (stable / "agents").is_dir():
         create_link(paths.opencode_agents / "pstack", stable / "agents")
@@ -562,6 +629,7 @@ def install(paths: Paths, replace: bool) -> int:
             str(paths.opencode_agents / "pstack"),
         }
     )
+    managed.update(str(destination) for _, destination in extra_locals)
     write_json(
         paths.state_file,
         {
@@ -571,7 +639,9 @@ def install(paths: Paths, replace: bool) -> int:
             "pstack_digest": tree_digest(stable),
         },
     )
-    print(f"installed {len(skills)} skills and pstack")
+    extras = ", ".join(source.name for source, _ in extra_locals)
+    suffix = f", {extras}" if extras else ""
+    print(f"installed {len(skills)} skills and pstack{suffix}")
     if backup.root:
         print(f"previous skills backed up at {backup.root}")
     return 0

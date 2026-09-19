@@ -93,6 +93,12 @@ def main():
         for folder in (ROOT / "skills", ROOT / "personal/skills")
         for skill in folder.glob("*/SKILL.md")
     }
+    for plugin in (ROOT / "plugins").iterdir():
+        if plugin.name == "pstack" or not plugin.is_dir():
+            continue
+        standalone.update(
+            skill.parent.name for skill in plugin.glob("skills/*/SKILL.md")
+        )
     pstack = ROOT / "plugins/pstack/pstack"
     bundled = {skill.parent.name for skill in pstack.glob("skills/*/SKILL.md")}
     env = os.environ.copy()

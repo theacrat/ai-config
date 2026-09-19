@@ -1,3 +1,9 @@
 [submodule "plugins/pstack"]
 	path = plugins/pstack
 	url = https://github.com/theacrat/pstack-generic.git
+[submodule "plugins/1password"]
+	path = plugins/1password
+	url = https://github.com/1Password/cursor-plugin.git
+[submodule "plugins/cloudflare"]
+	path = plugins/cloudflare
+	url = https://github.com/cloudflare/skills.git
