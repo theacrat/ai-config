@@ -171,6 +171,23 @@ def extra_cursor_plugins(paths: Paths) -> tuple[tuple[Path, Path], ...]:
     )
 
 
+def dropped_extra_plugins(
+    paths: Paths,
+    prior_paths: set[Path],
+    extra_locals: tuple[tuple[Path, Path], ...],
+) -> tuple[Path, ...]:
+    keep = {destination for _, destination in extra_locals}
+    keep.add(paths.cursor_plugin)
+    root = paths.home / ".cursor" / "plugins" / "local"
+    return tuple(
+        path
+        for path in sorted(prior_paths)
+        if path.parent == root
+        and path not in keep
+        and (path.exists() or path.is_symlink())
+    )
+
+
 def discover_skills(paths: Paths) -> dict[str, Path]:
     root = paths.checkout / "skills"
     result = skill_dirs(root)
@@ -571,6 +588,7 @@ def install(paths: Paths, replace: bool) -> int:
                 moves.append(destination)
             else:
                 conflicts.append(str(destination))
+    stale.extend(dropped_extra_plugins(paths, prior_paths, extra_locals))
     lockfile = paths.home / ".agents" / ".skill-lock.json"
     if replace and moves and lockfile.exists():
         moves.append(lockfile)

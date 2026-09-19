@@ -265,6 +265,29 @@ elif args[:3] == ["plugin", "uninstall", "pstack@pstack-local"]:
         self.assertEqual(self.execute().returncode, 0)
         self.assertEqual(self.execute("--check").returncode, 0)
 
+    def test_removed_extra_plugin_bundle_is_backed_up(self) -> None:
+        plugin = self.checkout / "plugins/demo"
+        (plugin / ".cursor-plugin").mkdir(parents=True)
+        (plugin / ".cursor-plugin/plugin.json").write_text('{"name":"demo"}\n')
+        (plugin / "skills/beta").mkdir(parents=True)
+        (plugin / "skills/beta/SKILL.md").write_text("beta\n")
+        self.assertEqual(self.execute().returncode, 0)
+        copied = self.home / ".cursor/plugins/local/demo"
+        self.assertTrue((copied / "skills/beta/SKILL.md").is_file())
+        shutil.rmtree(plugin)
+        result = self.execute()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(copied.exists())
+        self.assertFalse((self.home / ".agents/skills/beta").exists())
+        manifests = list(
+            (self.home / ".local/share/ai-config/backups").glob("*/manifest.json")
+        )
+        entries = [
+            entry for file in manifests for entry in json.loads(file.read_text())
+        ]
+        self.assertTrue(any(entry["original"] == str(copied) for entry in entries))
+        self.assertEqual(self.execute("--check").returncode, 0)
+
 
 if __name__ == "__main__":
     unittest.main()
