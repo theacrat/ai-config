@@ -68,7 +68,7 @@ lint disables stay targeted with inline justification, and mention them when com
 
 ## UI
 
-no vibe-coded LLM polish. the human is attached to layout, not decoration. go for a pastel, moe, amateur style by default, but don't sacrifice function or intuitiveness
+no vibe-coded LLM polish. the human is attached to layout, not decoration. function over form. avoid information overload
 
 ## languages
 
