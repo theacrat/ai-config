@@ -162,54 +162,6 @@
       "license": "licenses/cursor-pstack-MIT.txt",
       "path": "cursor-team-kit/skills/make-pr-easy-to-review",
       "root": "plugins/pstack"
-    },
-    {
-      "name": "computer-use",
-      "license": "licenses/stablyai-orca-MIT.txt",
-      "path": "skills/computer-use",
-      "root": "sources/orca"
-    },
-    {
-      "name": "linear-tickets",
-      "license": "licenses/stablyai-orca-MIT.txt",
-      "path": "skills/linear-tickets",
-      "root": "sources/orca"
-    },
-    {
-      "name": "orca-cli",
-      "license": "licenses/stablyai-orca-MIT.txt",
-      "path": "skills/orca-cli",
-      "root": "sources/orca"
-    },
-    {
-      "name": "orca-emulator",
-      "license": "licenses/stablyai-orca-MIT.txt",
-      "path": "skills/orca-emulator",
-      "root": "sources/orca"
-    },
-    {
-      "name": "orca-emulator-android",
-      "license": "licenses/stablyai-orca-MIT.txt",
-      "path": "skills/orca-emulator-android",
-      "root": "sources/orca"
-    },
-    {
-      "name": "orca-linear",
-      "license": "licenses/stablyai-orca-MIT.txt",
-      "path": "skills/orca-linear",
-      "root": "sources/orca"
-    },
-    {
-      "name": "orca-per-workspace-env",
-      "license": "licenses/stablyai-orca-MIT.txt",
-      "path": "skills/orca-per-workspace-env",
-      "root": "sources/orca"
-    },
-    {
-      "name": "orchestration",
-      "license": "licenses/stablyai-orca-MIT.txt",
-      "path": "skills/orchestration",
-      "root": "sources/orca"
     }
   ]
 }

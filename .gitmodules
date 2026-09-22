@@ -19,6 +19,3 @@
 [submodule "sources/trailofbits-skills"]
 	path = sources/trailofbits-skills
 	url = https://github.com/trailofbits/skills.git
-[submodule "sources/orca"]
-	path = sources/orca
-	url = https://github.com/stablyai/orca.git
