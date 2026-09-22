@@ -1,6 +1,6 @@
 # ai-config
 
-Personal skills shared across Codex, Claude Code, OpenCode and Cursor.
+Personal skills shared across Codex, Claude Code, OpenCode, Oh My Pi and Cursor.
 
 ## Set up another device
 
@@ -15,9 +15,9 @@ cd ~/Git/ai-config
 
 `--replace` moves existing user-installed skills into a local backup before installing this selection. The installer keeps system skills, credentials, unrelated plugins and project-local files. Backups and install state live under `~/.local/share/ai-config`, or your `XDG_DATA_HOME` equivalent. Keep the checkout on disk because standalone skills link to it.
 
-The Codex and Claude Code CLIs are optional. If either is missing, installation and `--check` skip its native plugin registration and verification. Shared skills and the Cursor and OpenCode bundles still install. After adding a missing CLI, rerun `./install.sh` to register its plugin. Errors from installed CLIs still fail the install.
+The Codex and Claude Code CLIs are optional. If either is missing, installation and `--check` skip its native plugin registration and verification. Shared skills, the Cursor and OpenCode bundles, and the Oh My Pi extension still install. After adding a missing CLI, rerun `./install.sh` to register its plugin. Errors from installed CLIs still fail the install.
 
-Restart Codex, Claude, OpenCode and Cursor after installation. In Cursor, check Customize for pstack, 1password, and cloudflare. Local plugin imports must be allowed by your organisation. A marketplace installation of the same plugin takes precedence over the local copy. See [Cursor's local plugin rules](https://cursor.com/docs/plugins).
+Restart Codex, Claude, OpenCode, Oh My Pi and Cursor after installation. In Cursor, check Customize for pstack, 1password, and cloudflare. Local plugin imports must be allowed by your organisation. A marketplace installation of the same plugin takes precedence over the local copy. See [Cursor's local plugin rules](https://cursor.com/docs/plugins).
 
 ## Sync an existing device
 
@@ -54,11 +54,14 @@ Application settings, model choices, authentication, MCP connections and session
 | Codex | `~/.agents/skills/` | Native `pstack@pstack-local` plugin |
 | Claude Code | `~/.claude/skills/` | Native `pstack@pstack-local` plugin |
 | OpenCode | Shared `~/.agents/skills/` discovery | Complete pstack bundle mounted under `~/.config/opencode/skills/pstack` and agents under `~/.config/opencode/agents/pstack` |
+| Oh My Pi | `~/.omp/agent/skills/` | Stable pstack bundle registered as an `extensions` entry in `~/.omp/agent/config.yml` |
 | Cursor | `~/.cursor/skills/` | Local copies at `~/.cursor/plugins/local/pstack`, `1password`, and `cloudflare` |
 
-The installer retains a complete pstack copy at `~/.local/share/ai-config/pstack` for native marketplace registration and OpenCode mounts. It refreshes native caches when bundle contents change, even if upstream did not bump the plugin version. Environment overrides for Codex, Claude and XDG directories are respected.
+The installer retains a complete pstack copy at `~/.local/share/ai-config/pstack` for native marketplace registration, OpenCode mounts, and the Oh My Pi extension. It refreshes native caches when bundle contents change, even if upstream did not bump the plugin version. Environment overrides for Codex, Claude, Oh My Pi (`PI_CODING_AGENT_DIR`, `OMP_PROFILE`, `PI_PROFILE`, `PI_CONFIG_DIR`) and XDG directories are respected.
 
 OpenCode discovers the bundled agents in its `all` mode, so they can be selected directly or delegated to. It ignores Cursor's background scheduling field. Its [skill discovery documentation](https://opencode.ai/docs/skills) describes the shared global directories.
+
+Oh My Pi links standalone skills into `~/.omp/agent/skills/`. It also discovers `~/.agents/skills/`. The pstack bundle is registered as one extension path so its `skills/` and `agents/` stay next to `docs/`. An existing `config.yaml` is updated in place. Legacy `settings.json` is updated only when no YAML config exists, because a new YAML file would hide it. A project `extensions` list replaces the user list for that project. [Skills](https://github.com/can1357/oh-my-pi/blob/main/docs/skills.md).
 
 ## Verify native discovery
 
@@ -68,7 +71,7 @@ With all three CLIs installed:
 python3 scripts/verify-loaders.py
 ```
 
-This asks Codex, Claude and OpenCode to list their loaded skills without sending a model request. Cursor's files are checked by the installer; inspect its running UI after reload to confirm local imports are enabled.
+This asks Codex, Claude and OpenCode to list their loaded skills without sending a model request. Oh My Pi has no headless skill list, so `./install.sh --check` confirms the skill links and the extension path. Cursor's files are checked by the installer; inspect its running UI after reload to confirm local imports are enabled.
 
 Installer development checks:
 

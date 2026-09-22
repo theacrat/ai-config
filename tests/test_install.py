@@ -104,8 +104,14 @@ elif args[:3] == ["plugin", "uninstall", "pstack@pstack-local"]:
         return env
 
     def execute(
-        self, *args: str, checkout: Path | None = None
+        self,
+        *args: str,
+        checkout: Path | None = None,
+        extra_env: dict[str, str] | None = None,
     ) -> subprocess.CompletedProcess[str]:
+        env = self.env()
+        if extra_env:
+            env.update(extra_env)
         return subprocess.run(
             [
                 sys.executable,
@@ -113,7 +119,7 @@ elif args[:3] == ["plugin", "uninstall", "pstack@pstack-local"]:
                 *args,
             ],
             cwd=checkout or self.checkout,
-            env=self.env(),
+            env=env,
             text=True,
             capture_output=True,
             check=False,
@@ -287,6 +293,34 @@ elif args[:3] == ["plugin", "uninstall", "pstack@pstack-local"]:
         ]
         self.assertTrue(any(entry["original"] == str(copied) for entry in entries))
         self.assertEqual(self.execute("--check").returncode, 0)
+
+    def test_omp_links_standalone_skills_and_registers_pstack(self) -> None:
+        result = self.execute()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        skill = self.home / ".omp/agent/skills/alpha"
+        self.assertEqual(skill.resolve(), (self.checkout / "skills/alpha").resolve())
+        config = (self.home / ".omp/agent/config.yml").read_text()
+        stable = str((self.home / ".local/share/ai-config/pstack").resolve())
+        self.assertIn(json.dumps(stable), config)
+        self.assertEqual(self.execute("--check").returncode, 0)
+        skill.unlink()
+        self.assertNotEqual(self.execute("--check").returncode, 0)
+
+    def test_omp_skill_links_follow_agent_dir(self) -> None:
+        custom = self.home / "custom-agent"
+        result = self.execute(extra_env={"PI_CODING_AGENT_DIR": str(custom)})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            (custom / "skills/thea-mode").resolve(),
+            (self.checkout / "personal/skills/thea-mode").resolve(),
+        )
+        self.assertFalse((self.home / ".omp/agent/skills").exists())
+        self.assertEqual(
+            self.execute(
+                "--check", extra_env={"PI_CODING_AGENT_DIR": str(custom)}
+            ).returncode,
+            0,
+        )
 
 
 if __name__ == "__main__":

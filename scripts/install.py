@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -64,6 +65,7 @@ class Paths:
             self.home / ".agents" / "skills",
             self.claude_home / "skills",
             self.home / ".cursor" / "skills",
+            omp_agent_dir(self.home) / "skills",
         )
 
     @property
@@ -103,6 +105,219 @@ def write_json(path: Path, value: Any) -> None:
         handle.write("\n")
         temporary = Path(handle.name)
     os.replace(temporary, path)
+
+
+_PROFILE_NAME = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
+_EXTENSIONS_KEY = re.compile(r"^extensions\s*:(.*)$")
+
+
+def omp_agent_dir(home: Path) -> Path:
+    if "OMP_PROFILE" in os.environ:
+        profile_raw = os.environ["OMP_PROFILE"]
+    else:
+        profile_raw = os.environ.get("PI_PROFILE")
+    profile = None if profile_raw is None else profile_raw.strip()
+    if profile in ("", "default"):
+        profile = None
+    elif profile is not None and _PROFILE_NAME.fullmatch(profile) is None:
+        raise InstallError(f"invalid OMP profile: {profile_raw}")
+    config_name = os.environ.get("PI_CONFIG_DIR", ".omp").strip() or ".omp"
+    root = home / config_name
+    if profile is not None:
+        return root / "profiles" / profile / "agent"
+    override = os.environ.get("PI_CODING_AGENT_DIR", "").strip()
+    if override:
+        return Path(override).expanduser()
+    return root / "agent"
+
+
+def omp_config_path(agent_dir: Path) -> Path:
+    """User config Oh My Pi actually reads for extensions.
+
+    config.yml wins over config.yaml. Either YAML file suppresses legacy
+    settings.json. settings.json is used only while no YAML file exists,
+    because creating YAML would hide the legacy file instead of migrating it.
+    """
+    yml = agent_dir / "config.yml"
+    if yml.is_file():
+        return yml
+    yaml_path = agent_dir / "config.yaml"
+    if yaml_path.is_file():
+        return yaml_path
+    settings = agent_dir / "settings.json"
+    if settings.is_file():
+        return settings
+    return yml
+
+
+def extension_matches(entry: str, home: Path, target: Path) -> bool:
+    raw = entry.strip()
+    if raw == "~":
+        path = home
+    elif raw.startswith("~/"):
+        path = home / raw[2:]
+    else:
+        path = Path(raw)
+    return path.is_absolute() and path.resolve() == target.resolve()
+
+
+def _split_unquoted_comment(text: str) -> tuple[str, str]:
+    quote = ""
+    for index, char in enumerate(text):
+        if quote:
+            if char == quote and text[index - 1] != "\\":
+                quote = ""
+            continue
+        if char in "\"'":
+            quote = char
+            continue
+        if char == "#":
+            return text[:index].rstrip(), text[index:]
+    return text.rstrip(), ""
+
+
+def _parse_scalar(token: str) -> str:
+    body, _comment = _split_unquoted_comment(token.strip())
+    body = body.strip()
+    if not body:
+        raise InstallError("Oh My Pi extensions entry is empty")
+    if body[0] == '"':
+        try:
+            value = json.loads(body)
+        except json.JSONDecodeError as exc:
+            raise InstallError("unreadable Oh My Pi extensions entry") from exc
+        if not isinstance(value, str):
+            raise InstallError("Oh My Pi extensions entry is not a path")
+        return value
+    if body[0] == "'":
+        if len(body) < 2 or body[-1] != "'":
+            raise InstallError("unreadable Oh My Pi extensions entry")
+        return body[1:-1].replace("''", "'")
+    if body[0] in "[{*&!|>" or ": " in body:
+        raise InstallError("Oh My Pi extensions must be a flat list of paths")
+    return body
+
+
+def _split_flow(inner: str) -> list[str]:
+    items: list[str] = []
+    quote = ""
+    start = 0
+    for index, char in enumerate(inner):
+        if quote:
+            if char == quote and inner[index - 1] != "\\":
+                quote = ""
+            continue
+        if char in "\"'":
+            quote = char
+            continue
+        if char == ",":
+            items.append(inner[start:index])
+            start = index + 1
+    items.append(inner[start:])
+    return [_parse_scalar(item) for item in items if item.strip()]
+
+
+def _extensions_key(line: str) -> re.Match[str] | None:
+    return _EXTENSIONS_KEY.match(line.rstrip("\r\n"))
+
+
+def load_omp_extensions(path: Path) -> list[str]:
+    if not path.is_file():
+        return []
+    if path.suffix == ".json":
+        try:
+            value = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            raise InstallError(f"Oh My Pi settings are invalid JSON: {path}") from exc
+        if not isinstance(value, dict):
+            raise InstallError(f"Oh My Pi settings must be a JSON object: {path}")
+        raw = value.get("extensions", [])
+        if not isinstance(raw, list) or not all(isinstance(item, str) for item in raw):
+            raise InstallError(f"Oh My Pi extensions must be a list of paths: {path}")
+        return raw
+    return yaml_extensions(path.read_text(encoding="utf-8"))
+
+
+def yaml_extensions(text: str) -> list[str]:
+    lines = text.splitlines()
+    keys = [index for index, line in enumerate(lines) if _extensions_key(line)]
+    if not keys:
+        return []
+    if len(keys) > 1:
+        raise InstallError("Oh My Pi config has more than one extensions key")
+    rest = _extensions_key(lines[keys[0]]).group(1)
+    body, _comment = _split_unquoted_comment(rest)
+    body = body.strip()
+    if body.startswith("["):
+        if not body.endswith("]"):
+            raise InstallError("Oh My Pi extensions flow list must be on one line")
+        return _split_flow(body[1:-1])
+    if body:
+        raise InstallError("Oh My Pi extensions must be a flat list of paths")
+    entries: list[str] = []
+    for line in lines[keys[0] + 1 :]:
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        item = re.match(r"^[ \t]+-[ \t]+(.*)$", line)
+        if item is None:
+            if re.match(r"^[ \t]+\S", line):
+                raise InstallError("Oh My Pi extensions must be a flat list of paths")
+            break
+        entries.append(_parse_scalar(item.group(1)))
+    return entries
+
+
+def merge_omp_yaml(text: str, entry: str, home: Path, target: Path) -> str:
+    if any(extension_matches(item, home, target) for item in yaml_extensions(text)):
+        return text
+    newline = "\r\n" if "\r\n" in text else "\n"
+    lines = text.splitlines(keepends=True)
+    keys = [index for index, line in enumerate(lines) if _extensions_key(line)]
+    quoted = json.dumps(entry)
+    if not keys:
+        prefix = text
+        if prefix and not prefix.endswith(("\n", "\r")):
+            prefix += newline
+        if prefix and not prefix.endswith(("\n\n", "\r\n\r\n")):
+            prefix += newline
+        return f"{prefix}extensions:{newline}  - {quoted}{newline}"
+    rest = _extensions_key(lines[keys[0]]).group(1)
+    body, comment = _split_unquoted_comment(rest)
+    if body.strip().startswith("["):
+        inner = body.strip()[1:-1]
+        replacement = quoted if not inner.strip() else f"{inner.rstrip()}, {quoted}"
+        suffix = f" {comment}" if comment else ""
+        lines[keys[0]] = f"extensions: [{replacement}]{suffix}{newline}"
+        return "".join(lines)
+    indent = "  "
+    last = keys[0]
+    for index, line in enumerate(lines[keys[0] + 1 :], keys[0] + 1):
+        if re.match(r"^[ \t]+-[ \t]+", line):
+            found = re.match(r"^([ \t]+)-", line)
+            indent = found.group(1) if found else indent
+            last = index
+    if not lines[last].endswith(("\n", "\r")):
+        lines[last] += newline
+    lines.insert(last + 1, f"{indent}- {quoted}{newline}")
+    return "".join(lines)
+
+
+def ensure_omp_extension(home: Path, target: Path) -> None:
+    target = target.resolve()
+    path = omp_config_path(omp_agent_dir(home))
+    if path.suffix == ".json":
+        value = json.loads(path.read_text(encoding="utf-8"))
+        entries = value.get("extensions", [])
+        if any(extension_matches(item, home, target) for item in entries):
+            return
+        value["extensions"] = [*entries, str(target)]
+        path.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    current = path.read_text(encoding="utf-8") if path.is_file() else ""
+    updated = merge_omp_yaml(current, str(target), home, target)
+    if updated != current:
+        path.write_text(updated, encoding="utf-8")
 
 
 def iter_files(root: Path) -> Iterable[Path]:
@@ -517,6 +732,17 @@ def check(paths: Paths) -> int:
         paths.opencode_agents / "pstack", stable / "agents"
     ):
         problems.append("OpenCode pstack agents link is missing or incorrect")
+    try:
+        omp_entries = load_omp_extensions(omp_config_path(omp_agent_dir(paths.home)))
+    except InstallError as exc:
+        problems.append(str(exc))
+    else:
+        if not any(
+            extension_matches(entry, paths.home, stable) for entry in omp_entries
+        ):
+            problems.append(
+                "Oh My Pi pstack extension is missing or does not point at the stable bundle"
+            )
     for cli, verify in (("codex", codex_ok), ("claude", claude_ok)):
         if shutil.which(cli) is None:
             print(
@@ -539,6 +765,7 @@ def check(paths: Paths) -> int:
 def install(paths: Paths, replace: bool) -> int:
     skills = discover_skills(paths)
     bundle = source_bundle(paths)
+    load_omp_extensions(omp_config_path(omp_agent_dir(paths.home)))
     state = read_json(paths.state_file, {})
     prior_paths = managed_paths(state)
     backup = Backup(paths)
@@ -617,6 +844,7 @@ def install(paths: Paths, replace: bool) -> int:
     create_link(paths.opencode_skills / "pstack", stable)
     if (stable / "agents").is_dir():
         create_link(paths.opencode_agents / "pstack", stable / "agents")
+    ensure_omp_extension(paths.home, stable)
     managed = {
         str(destination / name)
         for destination in paths.link_destinations

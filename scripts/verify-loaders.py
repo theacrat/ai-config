@@ -145,6 +145,7 @@ def main():
             standalone | bundled,
             {skill["name"] for skill in json.loads(output.read_text())},
         )
+    print("Oh My Pi: extension path is checked by install.sh --check.")
     print("Cursor: run install.sh --check, then reload and inspect Customize > Skills.")
 
 
