@@ -31,7 +31,8 @@ function boolean(value: unknown): boolean | null {
   return typeof value === "boolean" ? value : null;
 }
 function signalBoolean(value: unknown): boolean | null {
-  return value === "true" ? true : value === "false" ? false : boolean(value);
+  const normalised = typeof value === "string" ? value.trim().toLowerCase() : value;
+  return normalised === "true" ? true : normalised === "false" ? false : boolean(value);
 }
 function displayText(value: unknown): string {
   return typeof value === "string"
@@ -63,14 +64,14 @@ export function parseObservation(value: unknown, provider: string): Observation 
   const groups = new Set<string>();
   for (const key of Object.keys(signals)) {
     const match =
-      /^(x-codex-(?:[a-z0-9._-]+-)?(?:primary|secondary))-(?:used-percent|window-minutes|reset-at|reset-after-seconds)$/.exec(
+      /^(x-codex-(?:[a-z0-9._-]{1,256}-)?(?:primary|secondary))-(?:used-percent|window-minutes|reset-at|reset-after-seconds)$/.exec(
         key,
       );
     if (match?.[1]) {
       prefixes.add(match[1]);
       groups.add(match[1].replace(/(?:primary|secondary)$/, ""));
     }
-    const group = /^(x-codex-(?:[a-z0-9._-]+-)?)(?:allowed|limit-reached|limit-name)$/.exec(
+    const group = /^(x-codex-(?:[a-z0-9._-]{1,256}-)?)(?:allowed|limit-reached|limit-name)$/.exec(
       key,
     )?.[1];
     if (group) groups.add(group);
@@ -79,7 +80,7 @@ export function parseObservation(value: unknown, provider: string): Observation 
     .sort()
     .slice(0, 24)
     .map((prefix) => ({
-      id: displayText(prefix === "x-codex-" ? "main" : prefix.slice(8, -1)),
+      id: prefix === "x-codex-" ? "main" : prefix.slice(8, -1),
       name:
         displayText(signals[`${prefix}limit-name`]) ||
         (prefix === "x-codex-"
@@ -105,17 +106,14 @@ export function parseObservation(value: unknown, provider: string): Observation 
           : null;
     const period = prefix.endsWith("-primary") ? "Primary" : "Secondary";
     const groupPrefix = prefix.replace(/(?:primary|secondary)$/, "");
-    const groupName =
-      limits.find(
-        (limit) =>
-          limit.id === displayText(groupPrefix === "x-codex-" ? "main" : groupPrefix.slice(8, -1)),
-      )?.name ?? "Additional limit";
+    const limitId = groupPrefix === "x-codex-" ? "main" : groupPrefix.slice(8, -1);
+    const groupName = limits.find((limit) => limit.id === limitId)?.name ?? "Additional limit";
     const label =
       prefix === "x-codex-primary" || prefix === "x-codex-secondary"
         ? period
         : `${groupName.slice(0, 65)} · ${period}`;
     windows.push({
-      limitId: displayText(groupPrefix === "x-codex-" ? "main" : groupPrefix.slice(8, -1)),
+      limitId,
       label,
       usedPercent: used !== null && used <= 100 ? used : null,
       minutes,

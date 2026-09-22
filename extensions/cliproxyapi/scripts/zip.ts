@@ -1,5 +1,8 @@
 import { mkdir, rm } from "node:fs/promises";
-const build = Bun.spawn(["bun", "run", "build"], { stdout: "inherit", stderr: "inherit" });
+const build = Bun.spawn(["bun", "run", "build"], {
+  stdout: "inherit",
+  stderr: "inherit",
+});
 if ((await build.exited) !== 0) throw new Error("Build failed");
 await mkdir("dist", { recursive: true });
 const zip = "dist/openchamber-cliproxyapi.zip";

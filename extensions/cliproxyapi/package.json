@@ -29,7 +29,7 @@
   "openchamber": {
     "apiVersion": 1,
     "engines": {
-      "openchamber": ">=1.22.0"
+      "openchamber": ">=1.24.2"
     },
     "contributes": {
       "panel": {

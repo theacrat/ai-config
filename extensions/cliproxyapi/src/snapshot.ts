@@ -28,7 +28,7 @@ export const reasonSchema = z.enum([
   "transient_error",
 ]);
 const windowSchema = z.object({
-  limitId: z.string().max(80),
+  limitId: z.string().max(256),
   label: z.string().max(80),
   usedPercent: z.number().finite().min(0).max(100).nullable(),
   minutes: z.number().finite().positive().nullable(),
@@ -41,7 +41,7 @@ const observationSchema = z.object({
   limits: z
     .array(
       z.object({
-        id: z.string().max(80),
+        id: z.string().max(256),
         name: z.string().max(80),
         allowed: z.boolean().nullable(),
         limitReached: z.boolean().nullable(),
@@ -70,7 +70,12 @@ export const snapshotSchema = z.object({
         unavailable: z.boolean().nullable(),
         observation: observationSchema,
         models: z
-          .array(z.object({ name: z.string().max(80), observation: observationSchema }))
+          .array(
+            z.object({
+              name: z.string().max(80),
+              observation: observationSchema,
+            }),
+          )
           .max(24),
         cooldowns: z
           .array(

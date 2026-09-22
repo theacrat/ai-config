@@ -1,7 +1,7 @@
 # CLIProxyAPI quota panel for OpenChamber
 
 A standalone, read-only panel and full-page view for saved CLIProxyAPI quota
-observations, account health, and cooldowns. Requires OpenChamber 1.22.0 or later
+observations, account health, and cooldowns. Requires OpenChamber 1.24.2 or later
 on desktop or web. VS Code and mobile do not run guest local services.
 
 ## Install
@@ -40,7 +40,7 @@ encryption. Use a trusted private network or configure an HTTPS CPA origin.
 
 ## Reading the panel
 
-- Search by provider or stable auth index. Filter by provider, health, or unknown
+- Search by account name, provider, or stable auth index. Filter by provider, health, or unknown
   account quota. Display names use CPA's label, then email, then filename, then
   provider and index as a fallback. Hover the name for the full index. Display
   strings are limited to 80 characters with control characters removed.
@@ -148,7 +148,7 @@ synthetic accounts, one stale measured quota and one model cooldown.
 
 ## Source references
 
-CPA behavior was derived only from its source:
+CPA behaviour was derived from its [official source at e01806f](https://github.com/router-for-me/CLIProxyAPI/tree/e01806f971b1758b23bb067d93f7d2acd73d2c70):
 
 - `internal/api/handlers/management/auth_files.go`: auth entries, passive quota
   projection, `observed_at`, `signals`, and `model_quotas`.
@@ -157,6 +157,6 @@ CPA behavior was derived only from its source:
 - `sdk/cliproxy/auth/types.go`, `status.go`, and `cooldown_view.go`: stable indices,
   health states, cooldown scopes, reasons and absolute retry times.
 
-Host behavior follows the official OpenChamber SDK `API.md`, `GUEST_SERVICES.md`,
+Host behaviour follows the [official OpenChamber SDK](https://github.com/btriapitsyn/openchamber/tree/0c4fbe362dbbc12af790d29da8afbcb19c910ced/packages/sdk) `API.md`, `GUEST_SERVICES.md`,
 and `src` protocol and theme types. No other CPA client or host provider
 implementation informed this package.

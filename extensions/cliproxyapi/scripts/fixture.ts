@@ -120,7 +120,12 @@ function send(message: unknown): void {
   frame?.contentWindow?.postMessage(parsed, "*");
 }
 function pushReady(): void {
-  send({ channel: OPENCHAMBER_SDK_CHANNEL, v: 1, type: "ready", payload: ready() });
+  send({
+    channel: OPENCHAMBER_SDK_CHANNEL,
+    v: 1,
+    type: "ready",
+    payload: ready(),
+  });
 }
 window.addEventListener("message", (event) => {
   if (event.source !== frame.contentWindow) return;
@@ -161,7 +166,10 @@ window.addEventListener("message", (event) => {
     type: "result",
     id: message.id,
     ok: true,
-    payload: { status: ["setup", "error"].includes(mode) ? 503 : 200, body: JSON.stringify(body) },
+    payload: {
+      status: ["setup", "error"].includes(mode) ? 503 : 200,
+      body: JSON.stringify(body),
+    },
   });
 });
 document.querySelectorAll<HTMLButtonElement>("button[data-mode]").forEach((button) =>

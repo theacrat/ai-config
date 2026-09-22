@@ -19,7 +19,7 @@ A window contains measured usage and its observation/reset timestamps. Missing
 measurements remain unknown. Polling CPA must not make an old observation look new.
 
 The service reads a private configuration file under the user's home directory.
-Neither the management key nor upstream auth metadata may reach the panel, logs,
+Neither the management key nor upstream credentials/token claims may reach the panel, logs,
 fixtures or build outputs. Configuration changes are local setup operations.
 Requests use a fixed management endpoint and reject redirects.
 
@@ -48,9 +48,9 @@ or similar integrations are used.
 - [x] Agree on the service-backed snapshot boundary.
 - [x] Implement the service, parser and panel.
 - [x] Verify parsing, service authentication and real CPA reads.
-- [ ] Verify the built panel through the SDK wire contract in a browser.
+- [x] Verify the built panel through the SDK wire contract in a browser.
 - [x] Review the diff and package built assets for folder/ZIP installation.
-- [ ] Revisit the design if the SDK or observed CPA data contradicts it.
+- [x] Revise quota groups to retain full identifiers separately from display text.
 
 Blocking first steps are contract discovery and credential isolation. One code
 owner keeps the shared snapshot contract consistent. Verification can run
@@ -60,7 +60,7 @@ review and integration happen in the original worktree.
 ## Implementation verification
 
 The package uses SDK 1.24.2, checked against npm, and ships its MIT licence and
-Zod's MIT licence. The parser/service suite passes 32 tests. The built CommonJS
+Zod's MIT licence. The parser/service suite passes 34 tests. The built CommonJS
 service passed live verification under Node with 4 accounts, none omitted, 2
 account windows and 1 model observation. The live script prints counts only.
 
@@ -70,6 +70,11 @@ as bounded, control-free text. Codex flags, credits and active-limit attribution
 remain visible even without percentage windows. Invalid cooldown entries mark the
 data incomplete rather than implying a known-empty cooldown set.
 
-The synthetic browser fixture speaks the SDK wire protocol and loads the committed
-panel bundle. Browser interaction verification is pending the parent's connected
-browser; this implementation session has no desktop browser or Chromium binary.
+The release ZIP installed in an isolated OpenChamber 1.24.2 instance. Headless
+Chromium verified all four live accounts, provider and unknown-quota filters,
+manual refresh, preserved model names, and horizontal layout bounds.
+
+The synthetic SDK fixture passed browser checks for search, flag-only quotas,
+stale snapshot retention, setup errors, paused retries after service failure,
+manual recovery, repeated ready events, light/dark themes, narrow/wide layouts,
+and empty accounts. Screenshots use synthetic account data only.

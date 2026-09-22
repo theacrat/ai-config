@@ -58,7 +58,10 @@ export async function readConfig(path = configPath()): Promise<Config> {
 export async function fetchSnapshot(config: Config): Promise<Snapshot> {
   try {
     const response = await fetch(new URL("/v0/management/auth-files", config.baseUrl), {
-      headers: { Authorization: `Bearer ${config.managementKey}`, Accept: "application/json" },
+      headers: {
+        Authorization: `Bearer ${config.managementKey}`,
+        Accept: "application/json",
+      },
       redirect: "error",
       signal: AbortSignal.timeout(8000),
     });
@@ -153,7 +156,9 @@ export function createService(
         });
       send(200, await pending);
     } catch (error) {
-      send(503, { error: error instanceof ServiceError ? error.code : "upstream-unavailable" });
+      send(503, {
+        error: error instanceof ServiceError ? error.code : "upstream-unavailable",
+      });
     }
   });
   server.requestTimeout = 10000;

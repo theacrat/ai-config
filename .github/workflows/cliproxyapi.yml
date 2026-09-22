@@ -30,6 +30,14 @@ jobs:
       - run: bun run lint
       - run: bun run format:check
       - run: bun run test
+      - run: |
+          git cat-file -e HEAD:extensions/cliproxyapi/panel/main.js
+          git cat-file -e HEAD:extensions/cliproxyapi/service/main.js
       - run: bun run build
       - run: git diff --exit-code -- panel/main.js service/main.js
       - run: bun run zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: openchamber-cliproxyapi
+          path: extensions/cliproxyapi/dist/openchamber-cliproxyapi.zip
+          if-no-files-found: error

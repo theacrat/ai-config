@@ -15,7 +15,9 @@ const server = Bun.serve({
     const path = new URL(request.url).pathname;
     if (path === "/") return new Response(page, { headers: { "Content-Type": "text/html" } });
     if (path === "/fixture.js")
-      return new Response(script, { headers: { "Content-Type": "text/javascript" } });
+      return new Response(script, {
+        headers: { "Content-Type": "text/javascript" },
+      });
     if (["/panel/index.html", "/panel/main.js", "/panel/style.css"].includes(path))
       return new Response(Bun.file(`.${path}`));
     return new Response("Not found", { status: 404 });

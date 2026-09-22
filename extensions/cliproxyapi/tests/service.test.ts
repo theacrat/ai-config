@@ -30,7 +30,11 @@ describe("local service boundary", () => {
     for (const path of ["/health", "/snapshot"]) {
       expect((await fetch(origin + path)).status).toBe(401);
       expect(
-        (await fetch(origin + path, { headers: { Authorization: "Bearer wrong-token" } })).status,
+        (
+          await fetch(origin + path, {
+            headers: { Authorization: "Bearer wrong-token" },
+          })
+        ).status,
       ).toBe(401);
     }
     expect(reads).toBe(0);
@@ -42,7 +46,11 @@ describe("local service boundary", () => {
       fetch(origin + "/snapshot", { headers }),
       fetch(origin + "/snapshot", { headers }),
     ]);
-    expect(await responses[0]?.json()).toEqual({ fetchedAt: 1, omitted: 0, accounts: [] });
+    expect(await responses[0]?.json()).toEqual({
+      fetchedAt: 1,
+      omitted: 0,
+      accounts: [],
+    });
     expect(reads).toBe(1);
   });
   it("does not disclose thrown messages", async () => {
@@ -65,13 +73,20 @@ describe("local service boundary", () => {
         res.end(
           JSON.stringify({
             files: [
-              { auth_index: "0123456789abcdef", provider: "codex", id_token: "private-canary" },
+              {
+                auth_index: "0123456789abcdef",
+                provider: "codex",
+                id_token: "private-canary",
+              },
             ],
           }),
         );
       }),
     );
-    const snapshot = await fetchSnapshot({ baseUrl: origin, managementKey: "test-management-key" });
+    const snapshot = await fetchSnapshot({
+      baseUrl: origin,
+      managementKey: "test-management-key",
+    });
     expect(received).toBe("GET /v0/management/auth-files Bearer test-management-key");
     expect(snapshot.accounts).toHaveLength(1);
     expect(JSON.stringify(snapshot)).not.toContain("private-canary");

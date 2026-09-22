@@ -255,7 +255,10 @@ async function refresh(): Promise<void> {
   busy = true;
   render();
   try {
-    const result = await host.serviceRequest({ method: "GET", path: "/snapshot" });
+    const result = await host.serviceRequest({
+      method: "GET",
+      path: "/snapshot",
+    });
     if (result.status !== 200) {
       let message = "Local service could not refresh. Check setup and try Refresh.";
       try {

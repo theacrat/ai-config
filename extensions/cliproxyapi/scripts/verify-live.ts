@@ -31,8 +31,12 @@ try {
     if (spawnFailed || child.exitCode !== null) break;
     try {
       ready =
-        (await fetch(`${base}/health`, { headers, signal: AbortSignal.timeout(500) })).status ===
-        200;
+        (
+          await fetch(`${base}/health`, {
+            headers,
+            signal: AbortSignal.timeout(500),
+          })
+        ).status === 200;
     } catch {
       /* Startup may still be binding. */
     }
@@ -45,7 +49,10 @@ try {
     (await fetch(`${base}/snapshot`)).status !== 401
   )
     throw new Error("service-auth-failed");
-  const response = await fetch(`${base}/snapshot`, { headers, signal: AbortSignal.timeout(12000) });
+  const response = await fetch(`${base}/snapshot`, {
+    headers,
+    signal: AbortSignal.timeout(12000),
+  });
   if (response.status !== 200) {
     const body: unknown = await response.json();
     const code =

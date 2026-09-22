@@ -15,6 +15,45 @@ const quota = {
   },
 };
 describe("passive observations", () => {
+  it("keeps distinct long limit identifiers attached to their own windows", () => {
+    const shared = "a".repeat(90);
+    const observation = {
+      signals: {
+        [`X-Codex-Additional-${shared}-one-Limit-Name`]: "First limit",
+        [`X-Codex-Additional-${shared}-one-Primary-Used-Percent`]: "10",
+        [`X-Codex-Additional-${shared}-two-Limit-Name`]: "Second limit",
+        [`X-Codex-Additional-${shared}-two-Primary-Used-Percent`]: "90",
+      },
+    };
+    const result = parseObservation(observation, "codex");
+    expect(
+      result.windows.map((window) => ({
+        label: window.label,
+        used: window.usedPercent,
+      })),
+    ).toEqual([
+      { label: "First limit · Primary", used: 10 },
+      { label: "Second limit · Primary", used: 90 },
+    ]);
+    expect(new Set(result.windows.map((window) => window.limitId)).size).toBe(2);
+    const snapshot = parseSnapshot({
+      files: [{ auth_index: "account", provider: "codex", quota: observation }],
+    });
+    expect(() => snapshotSchema.parse(snapshot)).not.toThrow();
+  });
+  it("reads mixed-case credit booleans returned by CPA", () => {
+    expect(
+      parseObservation(
+        {
+          signals: {
+            "X-Codex-Credits-Has-Credits": "False",
+            "X-Codex-Credits-Unlimited": "True",
+          },
+        },
+        "codex",
+      ).credits,
+    ).toEqual({ hasCredits: false, unlimited: true, balance: null });
+  });
   it("preserves zero, the original observation, and absolute resets across refreshes", () => {
     const files = [{ auth_index: "0123456789abcdef", provider: "codex", quota }];
     const first = parseSnapshot({ files }, 1790164800000);
@@ -22,8 +61,18 @@ describe("passive observations", () => {
     expect(first.accounts[0]?.observation).toMatchObject({
       observedAt: 1790164800000,
       windows: [
-        { label: "Primary", usedPercent: 0, minutes: 300, resetAt: 1790168400000 },
-        { label: "Secondary", usedPercent: 99.5, minutes: 10080, resetAt: 1790251200000 },
+        {
+          label: "Primary",
+          usedPercent: 0,
+          minutes: 300,
+          resetAt: 1790168400000,
+        },
+        {
+          label: "Secondary",
+          usedPercent: 99.5,
+          minutes: 10080,
+          resetAt: 1790251200000,
+        },
       ],
     });
     expect(later.accounts[0]?.observation).toEqual(first.accounts[0]?.observation);
@@ -42,7 +91,10 @@ describe("passive observations", () => {
     expect(
       parseObservation(
         {
-          signals: { "X-Codex-Primary-Used-Percent": "20", "X-Codex-Primary-Window-Minutes": "0" },
+          signals: {
+            "X-Codex-Primary-Used-Percent": "20",
+            "X-Codex-Primary-Window-Minutes": "0",
+          },
         },
         "codex",
       ).windows,
@@ -55,7 +107,10 @@ describe("passive observations", () => {
     });
     expect(
       parseObservation(
-        { observed_at: observed, signals: { "X-Codex-Primary-Reset-After-Seconds": "0" } },
+        {
+          observed_at: observed,
+          signals: { "X-Codex-Primary-Reset-After-Seconds": "0" },
+        },
         "codex",
       ).windows[0]?.resetAt,
     ).toBe(1790164800000);
@@ -148,7 +203,11 @@ describe("passive observations", () => {
           email: "second@example.invalid",
           name: "ignored.json",
         },
-        { auth_index: "3333333333333333", provider: "codex", name: "third.json" },
+        {
+          auth_index: "3333333333333333",
+          provider: "codex",
+          name: "third.json",
+        },
         { auth_index: "4444444444444444", provider: "codex" },
         {
           auth_index: "5555555555555555",
@@ -247,7 +306,12 @@ describe("passive observations", () => {
     expect(result.accounts[0]?.cooldowns).toBeNull();
     expect(
       parseObservation(
-        { signals: { "X-Codex-Allowed": "yes", "X-Codex-Credits-Balance": "NaN" } },
+        {
+          signals: {
+            "X-Codex-Allowed": "yes",
+            "X-Codex-Credits-Balance": "NaN",
+          },
+        },
         "codex",
       ),
     ).toMatchObject({ limits: [{ allowed: null }], credits: null });
@@ -262,7 +326,10 @@ describe("passive observations", () => {
     const result = parseSnapshot({
       files: [
         { auth_index: "empty", cooldowns: [] },
-        { auth_index: "invalid", cooldowns: [{ scope: "model", retry_at: "bad" }, null] },
+        {
+          auth_index: "invalid",
+          cooldowns: [{ scope: "model", retry_at: "bad" }, null],
+        },
         { auth_index: "mixed", cooldowns: [valid, {}] },
         { auth_index: "wrong-type", cooldowns: {} },
       ],
