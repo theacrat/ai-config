@@ -1,6 +1,7 @@
 import { createServer, type Server } from "node:http";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
 import { createService, fetchSnapshot, readConfig } from "../src/service";
 
@@ -134,7 +135,7 @@ describe("local service boundary", () => {
     );
   });
   it("reads only explicit file configuration and rejects unsafe URL forms", async () => {
-    const directory = await mkdtemp("/tmp/opencode/cpa-config-test-");
+    const directory = await mkdtemp(join(tmpdir(), "cpa-config-test-"));
     const path = join(directory, "config.json");
     try {
       await expect(readConfig(path)).rejects.toThrow("setup");
