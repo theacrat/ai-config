@@ -56,6 +56,8 @@ encryption. Use a trusted private network or configure an HTTPS CPA origin.
   anchored to that timestamp, never to the most recent refresh. Observations older
   than 15 minutes display as stale. A passed reset time does not imply replenished
   quota; another observation is needed.
+- Reset and retry times include their UTC offset. The Time zone selector switches
+  between the browser's local timezone and UTC without changing CPA's timestamps.
 - Health, disablement, unavailability and cooldowns describe different CPA states.
   An empty known cooldown set does not prove an account is available. A null or
   missing cooldown set displays as unknown, including remote scheduling state.

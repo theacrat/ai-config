@@ -1,5 +1,6 @@
 import { connectHost, HostRequestError } from "@openchamber/sdk";
 import { applyHostReady } from "@openchamber/sdk/ui";
+import { formatTime } from "../src/time";
 import {
   snapshotSchema,
   hasQuotaSignals,
@@ -27,6 +28,9 @@ const refreshButton = required("#refresh", HTMLButtonElement);
 const search = required("#search", HTMLInputElement);
 const provider = required("#provider", HTMLSelectElement);
 const health = required("#health", HTMLSelectElement);
+const timeZone = required("#time-zone", HTMLSelectElement);
+const localTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+timeZone.replaceChildren(new Option(`Local (${localTimeZone})`, "local"), new Option("UTC", "utc"));
 const connection = required("#connection", HTMLParagraphElement);
 const summary = required("#summary", HTMLParagraphElement);
 const accounts = required("#accounts", HTMLElement);
@@ -50,11 +54,9 @@ function age(time: number): string {
         : `${Math.floor(minutes / 1440)}d ago`;
 }
 function timeLabel(time: number): string {
-  return new Date(time).toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
+  return formatTime({
+    timestamp: time,
+    timeZone: timeZone.value === "utc" ? "UTC" : localTimeZone,
   });
 }
 function observationNode(observation: Observation): HTMLElement {
@@ -301,6 +303,7 @@ refreshButton.addEventListener("click", () => {
 search.addEventListener("input", render);
 provider.addEventListener("change", render);
 health.addEventListener("change", render);
+timeZone.addEventListener("change", render);
 host.onReady((context) => {
   applyHostReady(context, document.documentElement);
   if (!ready) {

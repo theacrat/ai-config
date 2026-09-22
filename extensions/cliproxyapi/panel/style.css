@@ -103,6 +103,13 @@ button:disabled {
 .filters .search {
   flex-basis: 100%;
 }
+.time-zone {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--oc-muted, #aab1bd);
+}
 input,
 select {
   width: 100%;

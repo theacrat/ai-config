@@ -78,3 +78,27 @@ The synthetic SDK fixture passed browser checks for search, flag-only quotas,
 stale snapshot retention, setup errors, paused retries after service failure,
 manual recovery, repeated ready events, light/dark themes, narrow/wide layouts,
 and empty accounts. Screenshots use synthetic account data only.
+
+## Requested management controls
+
+The user expanded the panel scope after the initial ZIP verification:
+
+- Label reset/retry timezones and offer browser-local or UTC rendering. The first
+  screenshots inherited Australia/Brisbane from the test machine, UTC+10.
+- Fetch fresh provider quotas through CPA rather than only reading stored signals.
+- Apply Codex banked resets using the same provider operation as CPA's official UI.
+- Enable/disable accounts and refresh their credentials.
+- Open `/management.html` through `host.openUrl`, which uses the desktop's external
+  browser or a new web-browser tab. Never attach the management key to the URL.
+
+The user permits all official CLIProxyAPI source, including its management
+frontend, for the provider request contracts. Third-party quota extensions remain
+excluded. Generic CPA `/reset-quota` only clears local routing cooldowns and must
+not stand in for spending a banked reset.
+
+The service will resolve action targets from current CPA account identities,
+validate action payloads, retain credentials server-side, and return sanitised
+results. Provider refreshes may partially succeed. Failed reads preserve prior
+measurements with error/freshness labels. Consumptive reset operations must not
+automatically retry after an ambiguous response. Verification uses fake upstreams
+for account mutations and banked resets; real-instance checks exercise quota reads.
