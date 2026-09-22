@@ -34,9 +34,9 @@ Use an absolute path to the built `dist` directory in your `opencode.jsonc`:
       "options": {
         "sources": [
           {
-            "id": "cpa",
-            "baseURL": "http://cpa.nb/v1",
-            "apiKeyEnv": "CPA_API_KEY",
+            "id": "compatible",
+            "baseURL": "https://llm.example.com/v1",
+            "apiKeyEnv": "MODEL_API_KEY",
           },
         ],
       },
@@ -45,7 +45,7 @@ Use an absolute path to the built `dist` directory in your `opencode.jsonc`:
 }
 ```
 
-Set `CPA_API_KEY` to your bearer token in the environment of the OpenCode server. Omit `apiKeyEnv` for an unauthenticated server. V2 passes this options object through `ctx.options`.
+Set `MODEL_API_KEY` to your bearer token in the environment of the OpenCode server. Omit `apiKeyEnv` for an unauthenticated server. V2 passes this options object through `ctx.options`.
 
 ## Configure V1
 
@@ -60,9 +60,9 @@ V1 1.18.29+ supports the dual object entrypoint and a package/options tuple. Poi
       {
         "sources": [
           {
-            "id": "cpa",
-            "baseURL": "http://cpa.nb/v1",
-            "apiKeyEnv": "CPA_API_KEY",
+            "id": "compatible",
+            "baseURL": "https://llm.example.com/v1",
+            "apiKeyEnv": "MODEL_API_KEY",
           },
         ],
       },
@@ -76,7 +76,7 @@ The tuple's second element is passed directly as the second argument of `server(
 For a host or loader without native options support, use a plain plugin path and set `OPENCODE_MODEL_DISCOVERY` to JSON:
 
 ```sh
-export OPENCODE_MODEL_DISCOVERY='{"sources":[{"id":"cpa","baseURL":"http://cpa.nb/v1","apiKeyEnv":"CPA_API_KEY"}]}'
+export OPENCODE_MODEL_DISCOVERY='{"sources":[{"id":"compatible","baseURL":"https://llm.example.com/v1","apiKeyEnv":"MODEL_API_KEY"}]}'
 ```
 
 Both entrypoints use that variable only when native options are absent or an empty object. Explicit options replace the environment configuration entirely. `{ "sources": [] }` disables discovery. Invalid options produce a sanitised diagnostic and leave providers unchanged.
@@ -103,6 +103,17 @@ type Options = {
     baseURL: string;
     apiKeyEnv?: string;
     modelsURL?: string;
+    discovery?: boolean;
+    models?: Array<
+      | string
+      | {
+          id: string;
+          name?: string;
+          context?: number;
+          output?: number;
+          tools?: boolean;
+        }
+    >;
     timeoutMs?: number;
     defaults?: {
       context?: number;
@@ -118,6 +129,8 @@ type Options = {
 | `id`               | Unique provider ID. Model IDs may contain `/`.                                                                                                                              |
 | `baseURL`          | HTTP(S) API root used for inference, typically ending in `/v1`.                                                                                                             |
 | `modelsURL`        | Optional HTTP(S) catalogue URL. Defaults to `baseURL` with `/models` appended to its path.                                                                                  |
+| `discovery`        | Fetch the catalogue at startup. Default `true`. Set to `false` to use only configured models without a listing request.                                                     |
+| `models`           | Explicit model IDs or metadata objects. Default `[]`. Configured fields override discovered fields; configured-only IDs are retained.                                       |
 | `apiKeyEnv`        | Environment variable containing the bearer token. Missing or empty values fail that source without a request. The token is also passed to the inference provider in memory. |
 | `timeoutMs`        | Discovery request timeout including response body reading. Default `10000`.                                                                                                 |
 | `defaults.context` | Context token limit when metadata is missing. Default `32768`.                                                                                                              |
@@ -130,7 +143,38 @@ URLs may not contain user info or fragments. Keep credentials in `apiKeyEnv`. An
 
 ## Endpoint format and overrides
 
-The endpoint must return a JSON object with a `data` array:
+Any OpenAI-compatible inference endpoint can be configured, including servers without a model-listing route. For those servers, supply the exact model IDs accepted by inference and disable discovery:
+
+```json
+{
+  "sources": [
+    {
+      "id": "compatible",
+      "baseURL": "https://llm.example.com/v1",
+      "apiKeyEnv": "MODEL_API_KEY",
+      "discovery": false,
+      "models": [
+        "organisation/coder",
+        {
+          "id": "another-model",
+          "name": "Another model",
+          "context": 65536,
+          "output": 8192,
+          "tools": false
+        }
+      ]
+    }
+  ]
+}
+```
+
+With `discovery: false`, an empty `models` list still registers the source so native OpenCode manual model definitions can supply its models. The plugin never guesses model IDs. Missing credentials still skip the source. Configured model objects reject unknown fields, duplicate IDs and invalid metadata.
+
+With discovery enabled, each explicitly supplied metadata field overrides its discovered counterpart. Omitted fields retain discovered metadata, including the display name for a string ID. Configured-only models use source defaults for missing limits and tool support. Native OpenCode model settings take precedence over this combined inventory.
+
+All models are on by default, including models with `tools: false`. Explicit native disable settings, provider activation choices and model filters still apply.
+
+When discovery is enabled, the endpoint must return a JSON object with a `data` array:
 
 ```json
 {
@@ -165,7 +209,11 @@ V1 merges discovered models into the provider's configuration, with manual field
 
 Discovery runs once when the plugin loads, with sources fetched concurrently. There is no polling. Restart the OpenCode server or unload/reload the plugin to fetch a new catalogue. Replaying a V2 provider transform alone does not fetch again.
 
-A timeout, HTTP error, invalid response or missing credential leaves that source's existing provider unchanged. Other sources continue. Diagnostics contain a fixed error code, the zero-based position in `sources`, and an HTTP status where applicable. They never include tokens, URLs, raw exceptions or response bodies. V1 sends diagnostics through the SDK logger; V2 writes structured warnings to the host's stderr. V2 disposes its transform when the plugin unloads.
+A timeout, HTTP error or invalid response falls back to configured `models` when supplied. This includes listing access denied, since inference may have separate permissions. Without configured models, a failed request leaves the existing provider unchanged. A missing credential always skips the source. Other sources continue.
+
+HTTP 404, 405 and 501 report `discovery-unavailable`. HTTP 401 and 403 report `authentication-error`. A successful empty catalogue reports `empty-catalogue` and retains configured and existing manual models. Unsupported and empty listings suggest explicit models with `discovery: false`.
+
+Diagnostics contain a fixed actionable message, an error code, the zero-based position in `sources`, and an HTTP status where applicable. They never include tokens, URLs, raw exceptions or response bodies. V1 sends diagnostics through the SDK logger; V2 writes structured warnings to the host's stderr. V2 disposes its transform when the plugin unloads.
 
 ## Verify installed hosts
 

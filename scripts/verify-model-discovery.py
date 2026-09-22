@@ -18,11 +18,13 @@ from pathlib import Path
 
 TOKEN = "local-discovery-verification-token"
 MODEL = "fixture/chat-model"
+PROVIDERS = ["discovery-test", "unlisted", "manual"]
 
 
 class Endpoint(BaseHTTPRequestHandler):
     discovery_requests = 0
     inference_requests = 0
+    paths = []
 
     def log_message(self, *_args):
         pass
@@ -36,10 +38,11 @@ class Endpoint(BaseHTTPRequestHandler):
     def do_GET(self):
         if not self.authorised():
             return
+        Endpoint.paths.append(self.path)
+        Endpoint.discovery_requests += 1
         if self.path != "/v1/models":
             self.send_error(404)
             return
-        Endpoint.discovery_requests += 1
         body = json.dumps(
             {
                 "object": "list",
@@ -238,7 +241,24 @@ def verify(binary, version, plugin, base_url, root):
         "baseURL": base_url,
         "apiKeyEnv": "DISCOVERY_TEST_KEY",
     }
-    options = {"sources": [source]}
+    options = {
+        "sources": [
+            source,
+            {
+                **source,
+                "id": "unlisted",
+                "modelsURL": f"{base_url}/unpublished",
+                "models": [MODEL, "minimal-model"],
+            },
+            {
+                **source,
+                "id": "manual",
+                "discovery": False,
+                "modelsURL": f"{base_url}/must-not-request",
+                "models": [MODEL, "minimal-model"],
+            },
+        ]
+    }
     if version == "v1-legacy":
         config = {"plugin": [plugin.with_name("legacy.js").as_uri()]}
         env["OPENCODE_MODEL_DISCOVERY"] = json.dumps(options)
@@ -264,13 +284,26 @@ def verify(binary, version, plugin, base_url, root):
     (directory / "opencode.json").write_text(json.dumps(config))
     before = Endpoint.discovery_requests
     before_inference = Endpoint.inference_requests
+    before_paths = len(Endpoint.paths)
     if version == "v1":
-        catalogue = run(binary, ["models", "discovery-test"], directory, env)
-        assert f"discovery-test/{MODEL}" in catalogue, catalogue
-        assert "discovery-test/minimal-model" in catalogue, catalogue
+        catalogue = run(binary, ["models"], directory, env)
+        for provider in PROVIDERS:
+            found = {
+                line.removeprefix(f"{provider}/")
+                for line in catalogue.splitlines()
+                if line.startswith(f"{provider}/")
+            }
+            assert found == {MODEL, "minimal-model"}, (provider, found)
     if version == "v2":
         with v2_server(binary, directory, env) as request:
             catalogue = request("/api/model")
+            for provider in PROVIDERS:
+                entries = [m for m in catalogue["data"] if m["providerID"] == provider]
+                assert {m["id"] for m in entries} == {MODEL, "minimal-model"}, (
+                    provider,
+                    entries,
+                )
+                assert all(m["enabled"] for m in entries), (provider, entries)
             models = {
                 m["id"]: m
                 for m in catalogue["data"]
@@ -281,39 +314,47 @@ def verify(binary, version, plugin, base_url, root):
             assert models["minimal-model"]["name"] == "Manual override", models
             assert models["minimal-model"]["limit"]["context"] == 9000, models
             assert models["minimal-model"]["capabilities"]["tools"] is False, models
-            session = request(
-                "/api/session",
-                {
-                    "title": "Model discovery verification",
-                    "model": {"providerID": "discovery-test", "id": MODEL},
-                    "location": {"directory": str(directory)},
-                },
-            )
-            result = request(
-                f"/api/session/{session['data']['id']}/generate",
-                {"prompt": "Reply with the verification marker."},
-            )
-            assert result["data"]["text"] == "DISCOVERY_OK", result
+            for provider in PROVIDERS:
+                session = request(
+                    "/api/session",
+                    {
+                        "title": "Model discovery verification",
+                        "model": {"providerID": provider, "id": MODEL},
+                        "location": {"directory": str(directory)},
+                    },
+                )
+                result = request(
+                    f"/api/session/{session['data']['id']}/generate",
+                    {"prompt": "Reply with the verification marker."},
+                )
+                assert result["data"]["text"] == "DISCOVERY_OK", result
     else:
-        output = run(
-            binary,
-            [
-                "run",
-                "--model",
-                f"discovery-test/{MODEL}",
-                "--format",
-                "json",
-                "Reply with the verification marker.",
-            ],
-            directory,
-            env,
-        )
-        assert "DISCOVERY_OK" in output, output
+        for provider in PROVIDERS:
+            output = run(
+                binary,
+                [
+                    "run",
+                    "--model",
+                    f"{provider}/{MODEL}",
+                    "--format",
+                    "json",
+                    "Reply with the verification marker.",
+                ],
+                directory,
+                env,
+            )
+            assert "DISCOVERY_OK" in output, output
     assert Endpoint.discovery_requests > before, "Host did not query /models"
-    assert Endpoint.inference_requests > before_inference, (
+    assert Endpoint.inference_requests >= before_inference + len(PROVIDERS), (
         "Host did not call the discovered model"
     )
-    print(f"PASS {version}: discovered models and authenticated an inference request")
+    paths = Endpoint.paths[before_paths:]
+    assert "/v1/models" in paths, paths
+    assert "/v1/unpublished" in paths, paths
+    assert "/v1/must-not-request" not in paths, paths
+    print(
+        f"PASS {version}: all models enabled; inference works with discovery, unavailable catalogue, and manual models"
+    )
 
 
 def main():
