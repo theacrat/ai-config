@@ -47,6 +47,10 @@ For pstack, 1Password, or Cloudflare, fetch in `plugins/<name>`, check out the r
 
 Application settings, model choices, authentication, MCP connections and session histories stay local to each device. This repository synchronises skills and the plugin bundles.
 
+## Discover OpenCode models
+
+[`plugins/model-discovery/`](plugins/model-discovery/README.md) contains an OpenCode V1 and V2 plugin that fetches an OpenAI-compatible `/models` endpoint at startup. Its setup guide covers local installation, environment-based credentials, and model metadata defaults. Install it separately from the shared skills.
+
 ## Installation layout
 
 | App | Standalone skills | Plugins |
