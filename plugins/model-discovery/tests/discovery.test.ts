@@ -7,6 +7,8 @@ import type { Config } from "@opencode-ai/plugin";
 import { createOpencodeClient } from "@opencode-ai/sdk";
 import plugin from "../src/index";
 import { discover } from "../src/discovery";
+import { applyConfig } from "../src/v1";
+import { applyProviders } from "../src/v2";
 import type { Diagnostic } from "../src/discovery";
 
 const closers: Array<() => Promise<void>> = [];
@@ -161,6 +163,7 @@ describe("discovery", () => {
     const manual = {
       ...Model.Info.default(id, Model.ID.make("manual")),
       name: "Manual",
+      enabled: false,
       limit: { context: 500, output: 100 },
     };
     const info = {
@@ -190,6 +193,7 @@ describe("discovery", () => {
     expect(editor.get("local")?.models.get("manual")).toEqual(manual);
     expect(editor.get("local")?.models.get("org/new")).toMatchObject({
       name: "org/new",
+      enabled: true,
       capabilities: { tools: false },
       limit: { context: 75000, output: 2048 },
       cost: [],
@@ -204,6 +208,7 @@ describe("discovery", () => {
       settings: { baseURL },
     });
     expect(editor.get("new")?.models.get("bare")).toMatchObject({
+      enabled: true,
       capabilities: { input: ["text"], output: ["text"], tools: true },
       limit: { context: 32768, output: 4096 },
       cost: [],
@@ -266,9 +271,15 @@ describe("discovery", () => {
       apiKey: "test-only-secret",
     });
     expect([...(editor.get("healthy")?.models.keys() ?? [])]).toEqual(["new-model"]);
-    expect(warnings.mock.calls).toEqual([
-      ['{"service":"model-discovery","code":"http-error","sourceIndex":0,"status":403}'],
-    ]);
+    expect(warnings).toHaveBeenCalledOnce();
+    expect(JSON.parse(String(warnings.mock.calls[0]?.[0]))).toEqual({
+      service: "model-discovery",
+      message:
+        "Model listing access was denied. Check listing credentials or configure explicit models if inference is permitted.",
+      code: "authentication-error",
+      sourceIndex: 0,
+      status: 403,
+    });
     await cleanup();
   });
 
@@ -292,7 +303,9 @@ describe("discovery", () => {
       (diagnostic) => diagnostics.push(diagnostic),
     );
     expect(result.map((item) => [item.source.id, item.models.size])).toEqual([["empty", 0]]);
-    expect(diagnostics).toEqual([{ code: "invalid-response", sourceIndex: 0 }]);
+    expect(diagnostics).toHaveLength(2);
+    expect(diagnostics).toContainEqual({ code: "invalid-response", sourceIndex: 0 });
+    expect(diagnostics).toContainEqual({ code: "empty-catalogue", sourceIndex: 1 });
   });
 
   it("isolates HTTP, malformed JSON, invalid metadata, missing auth, redirect and timeout failures", async () => {
@@ -338,7 +351,11 @@ describe("discovery", () => {
     );
     expect(result.map((item) => item.source.id)).toEqual(["ok"]);
     expect(diagnostics).toHaveLength(6);
-    expect(diagnostics).toContainEqual({ code: "http-error", sourceIndex: 0, status: 401 });
+    expect(diagnostics).toContainEqual({
+      code: "authentication-error",
+      sourceIndex: 0,
+      status: 401,
+    });
     expect(diagnostics).toContainEqual({ code: "missing-api-key", sourceIndex: 6 });
     expect(paths).not.toContain("/leak");
     expect(JSON.stringify(diagnostics)).not.toMatch(/secret|127\.0\.0\.1|Bearer/);
@@ -373,6 +390,18 @@ describe("discovery", () => {
       [{ id: "local", baseURL: "file:///secret" }],
       [{ id: "local", baseURL: "http://user:secret@example.com" }],
       [{ id: "local", baseURL, timeoutMs: 0 }],
+      [{ id: "local", baseURL, discovery: "false" }],
+      [{ id: "local", baseURL, models: ["same", { id: "same" }] }],
+      ...["", "__proto__", "prototype", "constructor", "coder#q4", " coder"].map((id) => [
+        { id: "local", baseURL, models: [id] },
+      ]),
+      ...[
+        { id: "a", context: 0 },
+        { id: "a", output: "100" },
+        { id: "a", tools: null },
+        { id: "a", name: "" },
+        { id: "a", unknown: true },
+      ].map((model) => [{ id: "local", baseURL, models: [model] }]),
     ]) {
       const diagnostics: Diagnostic[] = [];
       expect(await discover({ sources }, (value) => diagnostics.push(value))).toEqual([]);
@@ -429,9 +458,194 @@ describe("discovery", () => {
       {
         service: "model-discovery",
         level: "warn",
-        message: "Model discovery failed",
+        message:
+          "Model listing returned an HTTP error. Check listing access or configure explicit models.",
         extra: { code: "http-error", sourceIndex: 0, status: 500 },
       },
+    ]);
+  });
+
+  it.each([404, 405, 501, 401, 403, 500])(
+    "classifies HTTP %s and uses configured models only when supplied",
+    async (status) => {
+      const baseURL = await endpoint((_request, response) => {
+        response.writeHead(status);
+        response.end("private response detail");
+      });
+      const diagnostics: Diagnostic[] = [];
+      const inventories = await discover(
+        {
+          sources: [
+            { id: "bare", baseURL },
+            {
+              id: "configured",
+              baseURL,
+              models: [
+                "org/manual",
+                { id: "named", name: "Named", context: 12345, output: 1234, tools: false },
+              ],
+            },
+          ],
+        },
+        (value) => diagnostics.push(value),
+      );
+      expect(inventories.map((item) => [item.source.id, [...item.models.values()]])).toEqual([
+        [
+          "configured",
+          [
+            { id: "org/manual", name: "org/manual" },
+            { id: "named", name: "Named", context: 12345, output: 1234, tools: false },
+          ],
+        ],
+      ]);
+      const code = [404, 405, 501].includes(status)
+        ? "discovery-unavailable"
+        : [401, 403].includes(status)
+          ? "authentication-error"
+          : "http-error";
+      expect(diagnostics).toEqual([
+        { code, sourceIndex: 0, status },
+        { code, sourceIndex: 1, status },
+      ]);
+    },
+  );
+
+  it.each(["bad JSON", '{"data":[{"id":"bad","supports_tools":null}]}', '{"data":[]}'])(
+    "retains configured models for catalogue %s",
+    async (body) => {
+      const baseURL = await endpoint((_request, response) => response.end(body));
+      const diagnostics: Diagnostic[] = [];
+      const inventories = await discover(
+        { sources: [{ id: "local", baseURL, models: ["manual"] }] },
+        (value) => diagnostics.push(value),
+      );
+      expect(inventories.map((item) => [...item.models.values()])).toEqual([
+        [{ id: "manual", name: "manual" }],
+      ]);
+      expect(diagnostics).toEqual([
+        { code: body === '{"data":[]}' ? "empty-catalogue" : "invalid-response", sourceIndex: 0 },
+      ]);
+    },
+  );
+
+  it("skips HTTP with discovery disabled, keeps empty sources and still requires credentials", async () => {
+    let requests = 0;
+    const baseURL = await endpoint((_request, response) => {
+      requests++;
+      response.end("unexpected");
+    });
+    vi.stubEnv("DISCOVERY_MISSING_KEY", "");
+    const diagnostics: Diagnostic[] = [];
+    const inventories = await discover(
+      {
+        sources: [
+          {
+            id: "local",
+            baseURL,
+            discovery: false,
+            models: ["manual", { id: "no-tools", tools: false }],
+          },
+          { id: "empty", baseURL, discovery: false },
+          {
+            id: "missing",
+            baseURL,
+            discovery: false,
+            models: ["manual"],
+            apiKeyEnv: "DISCOVERY_MISSING_KEY",
+          },
+        ],
+      },
+      (value) => diagnostics.push(value),
+    );
+    expect(requests).toBe(0);
+    expect(inventories.map((item) => [item.source.id, [...item.models.keys()]])).toEqual([
+      ["local", ["manual", "no-tools"]],
+      ["empty", []],
+    ]);
+    expect(diagnostics).toEqual([{ code: "missing-api-key", sourceIndex: 2 }]);
+    const config: Config = {
+      disabled_providers: ["local"],
+      provider: {
+        local: { blacklist: ["manual"] },
+        empty: { models: { native: { name: "Native" } } },
+      },
+    };
+    applyConfig(config, inventories);
+    expect(config.disabled_providers).toEqual(["local"]);
+    expect(config.provider?.local?.blacklist).toEqual(["manual"]);
+    expect(config.provider?.local?.models?.["no-tools"]?.tool_call).toBe(false);
+    expect(config.provider?.empty?.models).toEqual({ native: { name: "Native" } });
+    const editor = editorFixture();
+    applyProviders(editor, inventories);
+    expect(editor.get("empty")?.models.size).toBe(0);
+    expect(editor.get("local")?.models.get("manual")?.enabled).toBe(true);
+    expect(editor.get("local")?.models.get("no-tools")).toMatchObject({
+      enabled: true,
+      capabilities: { tools: false },
+    });
+  });
+
+  it("merges configured metadata field by field without losing discovered fields or configured-only IDs", async () => {
+    const baseURL = await endpoint((_request, response) =>
+      response.end(
+        JSON.stringify({
+          data: [
+            {
+              id: "string",
+              name: "Server name",
+              context_length: 9000,
+              max_output_tokens: 2000,
+              supports_tools: false,
+            },
+            {
+              id: "override",
+              name: "Old",
+              context_length: 8000,
+              max_output_tokens: 1000,
+              supports_tools: true,
+            },
+            { id: "discovered" },
+          ],
+        }),
+      ),
+    );
+    const inventories = await discover(
+      {
+        sources: [
+          {
+            id: "local",
+            baseURL,
+            models: [
+              "string",
+              { id: "override", name: "New", output: 3000, tools: false },
+              { id: "manual", context: 7000 },
+            ],
+          },
+        ],
+      },
+      () => {},
+    );
+    expect(inventories.map((item) => [...item.models.values()])).toEqual([
+      [
+        { id: "string", name: "Server name", context: 9000, output: 2000, tools: false },
+        { id: "override", name: "New", context: 8000, output: 3000, tools: false },
+        { id: "discovered", name: "discovered" },
+        { id: "manual", name: "manual", context: 7000 },
+      ],
+    ]);
+    const editor = editorFixture();
+    applyProviders(editor, inventories);
+    expect(
+      [...(editor.get("local")?.models.values() ?? [])].map((model) => [
+        model.id,
+        model.enabled,
+        model.capabilities.tools,
+      ]),
+    ).toEqual([
+      ["string", true, false],
+      ["override", true, false],
+      ["discovered", true, true],
+      ["manual", true, true],
     ]);
   });
 });

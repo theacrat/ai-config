@@ -23,6 +23,15 @@ const defaults = z
     tools: z.boolean().default(true),
   })
   .strict();
+const configuredModel = z
+  .object({
+    id: identifier,
+    name: z.string().min(1).optional(),
+    context: positive.optional(),
+    output: positive.optional(),
+    tools: z.boolean().optional(),
+  })
+  .strict();
 const source = z
   .object({
     id: providerIdentifier,
@@ -32,6 +41,16 @@ const source = z
       .regex(/^[A-Za-z_][A-Za-z0-9_]*$/)
       .optional(),
     modelsURL: url.optional(),
+    discovery: z.boolean().default(true),
+    models: z
+      .array(
+        z.union([
+          identifier.transform((id): z.output<typeof configuredModel> => ({ id })),
+          configuredModel,
+        ]),
+      )
+      .refine((models) => new Set(models.map((item) => item.id)).size === models.length)
+      .default([]),
     timeoutMs: positive.max(2147483647).default(10000),
     defaults: defaults.prefault({}),
   })
@@ -72,12 +91,32 @@ export type Diagnostic = {
     | "invalid-options"
     | "missing-api-key"
     | "http-error"
+    | "discovery-unavailable"
+    | "authentication-error"
+    | "empty-catalogue"
     | "invalid-response"
     | "request-failed";
   sourceIndex?: number;
   status?: number;
 };
 export type Reporter = (diagnostic: Diagnostic) => void;
+
+export const diagnosticMessages: Record<Diagnostic["code"], string> = {
+  "invalid-options": "Invalid model discovery options. Check the source configuration.",
+  "missing-api-key": "Model source skipped. Set the configured API key environment variable.",
+  "http-error":
+    "Model listing returned an HTTP error. Check listing access or configure explicit models.",
+  "discovery-unavailable":
+    "Model listing is unavailable. Configure explicit models and set discovery: false.",
+  "authentication-error":
+    "Model listing access was denied. Check listing credentials or configure explicit models if inference is permitted.",
+  "empty-catalogue":
+    "Model listing returned no models. Configure explicit models and set discovery: false.",
+  "invalid-response":
+    "Model listing returned an invalid or incomplete response. Check the catalogue format or configure explicit models.",
+  "request-failed":
+    "Model listing request failed. Check connectivity and timeout settings or configure explicit models.",
+};
 
 export async function discover(input: unknown, report: Reporter): Promise<Inventory[]> {
   let options;
@@ -101,6 +140,12 @@ export async function discover(input: unknown, report: Reporter): Promise<Invent
         report({ code: "missing-api-key", sourceIndex });
         return;
       }
+      const configured = new Map<string, DiscoveredModel>(
+        source.models.map((item) => [item.id, { ...item, name: item.name ?? item.id }]),
+      );
+      const fallback = { source, apiKey, models: configured } satisfies Inventory;
+      if (!source.discovery) return fallback;
+      const failed = configured.size ? fallback : undefined;
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), source.timeoutMs);
       try {
@@ -113,20 +158,25 @@ export async function discover(input: unknown, report: Reporter): Promise<Invent
         });
         if (!response.ok) {
           await response.body?.cancel();
-          report({ code: "http-error", sourceIndex, status: response.status });
-          return;
+          const code = [404, 405, 501].includes(response.status)
+            ? "discovery-unavailable"
+            : [401, 403].includes(response.status)
+              ? "authentication-error"
+              : "http-error";
+          report({ code, sourceIndex, status: response.status });
+          return failed;
         }
         let data: unknown;
         try {
           data = await response.json();
         } catch {
           report({ code: "invalid-response", sourceIndex });
-          return;
+          return failed;
         }
         const parsed = responseSchema.safeParse(data);
         if (!parsed.success) {
           report({ code: "invalid-response", sourceIndex });
-          return;
+          return failed;
         }
         const models = new Map<string, DiscoveredModel>();
         for (const item of parsed.data.data) {
@@ -138,10 +188,21 @@ export async function discover(input: unknown, report: Reporter): Promise<Invent
             tools: item.tool_call ?? item.supports_tools,
           });
         }
+        if (!models.size) report({ code: "empty-catalogue", sourceIndex });
+        for (const item of source.models) {
+          const discovered = models.get(item.id);
+          models.set(item.id, {
+            id: item.id,
+            name: item.name ?? discovered?.name ?? item.id,
+            context: item.context ?? discovered?.context,
+            output: item.output ?? discovered?.output,
+            tools: item.tools ?? discovered?.tools,
+          });
+        }
         return { source, apiKey, models } satisfies Inventory;
       } catch {
         report({ code: "request-failed", sourceIndex });
-        return;
+        return failed;
       } finally {
         clearTimeout(timer);
       }

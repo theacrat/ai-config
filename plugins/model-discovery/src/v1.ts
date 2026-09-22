@@ -1,5 +1,5 @@
 import type { Config, Hooks, PluginInput } from "@opencode-ai/plugin";
-import { discover } from "./discovery";
+import { diagnosticMessages, discover } from "./discovery";
 import type { Inventory } from "./discovery";
 
 export function applyConfig(config: Config, inventories: readonly Inventory[]): void {
@@ -41,7 +41,7 @@ export async function server(
         body: {
           service: "model-discovery",
           level: "warn",
-          message: "Model discovery failed",
+          message: diagnosticMessages[diagnostic.code],
           extra: diagnostic,
         },
       })

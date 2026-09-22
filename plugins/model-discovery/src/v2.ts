@@ -1,7 +1,7 @@
 import { Model, Provider } from "@opencode/plugin";
 import type { Plugin } from "@opencode/plugin";
 import type { ProviderEditor } from "@opencode/plugin/promise/provider";
-import { discover } from "./discovery";
+import { diagnosticMessages, discover } from "./discovery";
 import type { Inventory } from "./discovery";
 
 export function applyProviders(editor: ProviderEditor, inventories: readonly Inventory[]): void {
@@ -13,6 +13,7 @@ export function applyProviders(editor: ProviderEditor, inventories: readonly Inv
       const initial = Model.Info.default(id, Model.ID.make(model.id));
       merged.set(model.id, {
         ...initial,
+        enabled: true,
         name: model.name,
         capabilities: {
           input: ["text"],
@@ -57,7 +58,13 @@ export async function setup(
   },
 ): Promise<Plugin.Cleanup> {
   const inventories = await discover(ctx.options, (diagnostic) => {
-    console.warn(JSON.stringify({ service: "model-discovery", ...diagnostic }));
+    console.warn(
+      JSON.stringify({
+        service: "model-discovery",
+        message: diagnosticMessages[diagnostic.code],
+        ...diagnostic,
+      }),
+    );
   });
   const registration = await ctx.provider.transform((editor) =>
     applyProviders(editor, inventories),
