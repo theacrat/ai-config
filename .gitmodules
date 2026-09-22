@@ -7,3 +7,18 @@
 [submodule "plugins/cloudflare"]
 	path = plugins/cloudflare
 	url = https://github.com/cloudflare/skills.git
+[submodule "sources/mattpocock-skills"]
+	path = sources/mattpocock-skills
+	url = https://github.com/mattpocock/skills.git
+[submodule "sources/anthropics-skills"]
+	path = sources/anthropics-skills
+	url = https://github.com/anthropics/skills.git
+[submodule "sources/vercel-agent-skills"]
+	path = sources/vercel-agent-skills
+	url = https://github.com/vercel-labs/agent-skills.git
+[submodule "sources/trailofbits-skills"]
+	path = sources/trailofbits-skills
+	url = https://github.com/trailofbits/skills.git
+[submodule "sources/orca"]
+	path = sources/orca
+	url = https://github.com/stablyai/orca.git

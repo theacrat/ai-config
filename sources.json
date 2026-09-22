@@ -1,425 +1,215 @@
 {
-  "schema_version": 1,
+  "schema_version": 3,
   "skills": [
     {
       "name": "setup-matt-pocock-skills",
-      "destination": "skills/setup-matt-pocock-skills",
-      "source": {
-        "repository": "https://github.com/mattpocock/skills.git",
-        "commit": "3cca18b368ae95cdbdebbff572ccafa662551015",
-        "path": "skills/engineering/setup-matt-pocock-skills",
-        "sha256": "37b2b6b629c2eba1c40948f32e14a604b330846678ae6b947059568604078b0d"
-      },
       "license": "licenses/mattpocock-skills-MIT.txt",
-      "bundle_sha256": "37b2b6b629c2eba1c40948f32e14a604b330846678ae6b947059568604078b0d"
+      "path": "skills/engineering/setup-matt-pocock-skills",
+      "root": "sources/mattpocock-skills"
     },
     {
       "name": "grilling",
-      "destination": "skills/grilling",
-      "source": {
-        "repository": "https://github.com/mattpocock/skills.git",
-        "commit": "3cca18b368ae95cdbdebbff572ccafa662551015",
-        "path": "skills/productivity/grilling",
-        "sha256": "56133c70d8e124272259fb116cdc0fc38bd0ad207801703cc3b20ad157674cfb"
-      },
       "license": "licenses/mattpocock-skills-MIT.txt",
-      "bundle_sha256": "56133c70d8e124272259fb116cdc0fc38bd0ad207801703cc3b20ad157674cfb"
+      "path": "skills/productivity/grilling",
+      "root": "sources/mattpocock-skills"
     },
     {
       "name": "grill-with-docs",
-      "destination": "skills/grill-with-docs",
-      "source": {
-        "repository": "https://github.com/mattpocock/skills.git",
-        "commit": "3cca18b368ae95cdbdebbff572ccafa662551015",
-        "path": "skills/engineering/grill-with-docs",
-        "sha256": "f9e821d3a86853a18c712e0b69219b76b65393d44926e646306e42617b792cce"
-      },
       "license": "licenses/mattpocock-skills-MIT.txt",
-      "bundle_sha256": "f9e821d3a86853a18c712e0b69219b76b65393d44926e646306e42617b792cce"
+      "path": "skills/engineering/grill-with-docs",
+      "root": "sources/mattpocock-skills"
     },
     {
       "name": "domain-modeling",
-      "destination": "skills/domain-modeling",
-      "source": {
-        "repository": "https://github.com/mattpocock/skills.git",
-        "commit": "3cca18b368ae95cdbdebbff572ccafa662551015",
-        "path": "skills/engineering/domain-modeling",
-        "sha256": "586006f95ae636da9cc475e6508abb5af64f33a473ef30351f2d3ab1469c851c"
-      },
       "license": "licenses/mattpocock-skills-MIT.txt",
-      "bundle_sha256": "586006f95ae636da9cc475e6508abb5af64f33a473ef30351f2d3ab1469c851c"
+      "path": "skills/engineering/domain-modeling",
+      "root": "sources/mattpocock-skills"
     },
     {
       "name": "codebase-design",
-      "destination": "skills/codebase-design",
-      "source": {
-        "repository": "https://github.com/mattpocock/skills.git",
-        "commit": "3cca18b368ae95cdbdebbff572ccafa662551015",
-        "path": "skills/engineering/codebase-design",
-        "sha256": "cecfafb9b8c76310dc57f7d3dfe29616f686f1072bd91dd05df2b2be575b8547"
-      },
       "license": "licenses/mattpocock-skills-MIT.txt",
-      "bundle_sha256": "cecfafb9b8c76310dc57f7d3dfe29616f686f1072bd91dd05df2b2be575b8547"
+      "path": "skills/engineering/codebase-design",
+      "root": "sources/mattpocock-skills"
     },
     {
       "name": "improve-codebase-architecture",
-      "destination": "skills/improve-codebase-architecture",
-      "source": {
-        "repository": "https://github.com/mattpocock/skills.git",
-        "commit": "3cca18b368ae95cdbdebbff572ccafa662551015",
-        "path": "skills/engineering/improve-codebase-architecture",
-        "sha256": "f6611400bc23bf4141de14b768e7776d83212a93795e3193eef812412387d025"
-      },
       "license": "licenses/mattpocock-skills-MIT.txt",
-      "bundle_sha256": "f6611400bc23bf4141de14b768e7776d83212a93795e3193eef812412387d025"
+      "path": "skills/engineering/improve-codebase-architecture",
+      "root": "sources/mattpocock-skills"
     },
     {
       "name": "to-spec",
-      "destination": "skills/to-spec",
-      "source": {
-        "repository": "https://github.com/mattpocock/skills.git",
-        "commit": "3cca18b368ae95cdbdebbff572ccafa662551015",
-        "path": "skills/engineering/to-spec",
-        "sha256": "cfacbfe9d99d8e364658173be7c16eea2df29152301d4332d643a4c7a7329b77"
-      },
       "license": "licenses/mattpocock-skills-MIT.txt",
-      "bundle_sha256": "cfacbfe9d99d8e364658173be7c16eea2df29152301d4332d643a4c7a7329b77"
+      "path": "skills/engineering/to-spec",
+      "root": "sources/mattpocock-skills"
     },
     {
       "name": "to-tickets",
-      "destination": "skills/to-tickets",
-      "source": {
-        "repository": "https://github.com/mattpocock/skills.git",
-        "commit": "3cca18b368ae95cdbdebbff572ccafa662551015",
-        "path": "skills/engineering/to-tickets",
-        "sha256": "26faed5250cebdebde80d53b514f6c30c0c20153cec7c85d2f30fd5f8cb02327"
-      },
       "license": "licenses/mattpocock-skills-MIT.txt",
-      "bundle_sha256": "26faed5250cebdebde80d53b514f6c30c0c20153cec7c85d2f30fd5f8cb02327"
+      "path": "skills/engineering/to-tickets",
+      "root": "sources/mattpocock-skills"
     },
     {
       "name": "research",
-      "destination": "skills/research",
-      "source": {
-        "repository": "https://github.com/mattpocock/skills.git",
-        "commit": "3cca18b368ae95cdbdebbff572ccafa662551015",
-        "path": "skills/engineering/research",
-        "sha256": "41062b5286b2277dc61b8d91ef50c755a7058d2ed4faf7563bc2ef2fdeacf31e"
-      },
       "license": "licenses/mattpocock-skills-MIT.txt",
-      "bundle_sha256": "41062b5286b2277dc61b8d91ef50c755a7058d2ed4faf7563bc2ef2fdeacf31e"
+      "path": "skills/engineering/research",
+      "root": "sources/mattpocock-skills"
     },
     {
       "name": "code-review",
-      "destination": "skills/code-review",
-      "source": {
-        "repository": "https://github.com/mattpocock/skills.git",
-        "commit": "3cca18b368ae95cdbdebbff572ccafa662551015",
-        "path": "skills/engineering/code-review",
-        "sha256": "9650b9997216333d9095d831e16d4d924453bc55e444b2cd5e82587ca23ab6d3"
-      },
       "license": "licenses/mattpocock-skills-MIT.txt",
-      "bundle_sha256": "9650b9997216333d9095d831e16d4d924453bc55e444b2cd5e82587ca23ab6d3"
+      "path": "skills/engineering/code-review",
+      "root": "sources/mattpocock-skills"
     },
     {
       "name": "writing-for-agents",
-      "destination": "skills/writing-for-agents",
-      "source": {
-        "repository": "https://github.com/mattpocock/skills.git",
-        "commit": "3cca18b368ae95cdbdebbff572ccafa662551015",
-        "path": "skills/productivity/writing-for-agents",
-        "sha256": "e2b15d63796d87293a107043daebf7097bc5902501908e5747c7cbc64f1cb629"
-      },
       "license": "licenses/mattpocock-skills-MIT.txt",
-      "bundle_sha256": "e2b15d63796d87293a107043daebf7097bc5902501908e5747c7cbc64f1cb629"
+      "path": "skills/productivity/writing-for-agents",
+      "root": "sources/mattpocock-skills"
     },
     {
       "name": "resolving-merge-conflicts",
-      "destination": "skills/resolving-merge-conflicts",
-      "source": {
-        "repository": "https://github.com/mattpocock/skills.git",
-        "commit": "3cca18b368ae95cdbdebbff572ccafa662551015",
-        "path": "skills/engineering/resolving-merge-conflicts",
-        "sha256": "2da5524f52404f8e74ec40bc19a053b8a69bf7e1d367d472a0e53e3ff865e1a1"
-      },
       "license": "licenses/mattpocock-skills-MIT.txt",
-      "bundle_sha256": "2da5524f52404f8e74ec40bc19a053b8a69bf7e1d367d472a0e53e3ff865e1a1"
+      "path": "skills/engineering/resolving-merge-conflicts",
+      "root": "sources/mattpocock-skills"
     },
     {
       "name": "handoff",
-      "destination": "skills/handoff",
-      "source": {
-        "repository": "https://github.com/mattpocock/skills.git",
-        "commit": "3cca18b368ae95cdbdebbff572ccafa662551015",
-        "path": "skills/productivity/handoff",
-        "sha256": "127472aa3be7d97f28ad694c4f740ae37e17fc3644912a24380c0c25ef6eeda0"
-      },
       "license": "licenses/mattpocock-skills-MIT.txt",
-      "bundle_sha256": "127472aa3be7d97f28ad694c4f740ae37e17fc3644912a24380c0c25ef6eeda0"
+      "path": "skills/productivity/handoff",
+      "root": "sources/mattpocock-skills"
     },
     {
       "name": "triage",
-      "destination": "skills/triage",
-      "source": {
-        "repository": "https://github.com/mattpocock/skills.git",
-        "commit": "3cca18b368ae95cdbdebbff572ccafa662551015",
-        "path": "skills/engineering/triage",
-        "sha256": "17d86e8875ce3747c94ced13b5589e8e2b2982953342fcfb80b2ff1c56d764f8"
-      },
       "license": "licenses/mattpocock-skills-MIT.txt",
-      "bundle_sha256": "17d86e8875ce3747c94ced13b5589e8e2b2982953342fcfb80b2ff1c56d764f8"
+      "path": "skills/engineering/triage",
+      "root": "sources/mattpocock-skills"
     },
     {
       "name": "wayfinder",
-      "destination": "skills/wayfinder",
-      "source": {
-        "repository": "https://github.com/mattpocock/skills.git",
-        "commit": "3cca18b368ae95cdbdebbff572ccafa662551015",
-        "path": "skills/engineering/wayfinder",
-        "sha256": "633ffcd6830efd86131e9d8f471c799b62eb65de2f058c6f6e5d682e84f8f2f9"
-      },
       "license": "licenses/mattpocock-skills-MIT.txt",
-      "bundle_sha256": "633ffcd6830efd86131e9d8f471c799b62eb65de2f058c6f6e5d682e84f8f2f9"
+      "path": "skills/engineering/wayfinder",
+      "root": "sources/mattpocock-skills"
     },
     {
       "name": "prototype",
-      "destination": "skills/prototype",
-      "source": {
-        "repository": "https://github.com/mattpocock/skills.git",
-        "commit": "3cca18b368ae95cdbdebbff572ccafa662551015",
-        "path": "skills/engineering/prototype",
-        "sha256": "6e8af440955743949b6dfba22164e3f7ee618f7dd77c72b5608b460757f9d743"
-      },
       "license": "licenses/mattpocock-skills-MIT.txt",
-      "bundle_sha256": "6e8af440955743949b6dfba22164e3f7ee618f7dd77c72b5608b460757f9d743"
+      "path": "skills/engineering/prototype",
+      "root": "sources/mattpocock-skills"
     },
     {
       "name": "wizard",
-      "destination": "skills/wizard",
-      "source": {
-        "repository": "https://github.com/mattpocock/skills.git",
-        "commit": "3cca18b368ae95cdbdebbff572ccafa662551015",
-        "path": "skills/engineering/wizard",
-        "sha256": "9dd5c5ba480f59f86a158fb0e3d6a5682367dae071c6cd6a7d98ccfffd342673"
-      },
       "license": "licenses/mattpocock-skills-MIT.txt",
-      "bundle_sha256": "9dd5c5ba480f59f86a158fb0e3d6a5682367dae071c6cd6a7d98ccfffd342673"
+      "path": "skills/engineering/wizard",
+      "root": "sources/mattpocock-skills"
     },
     {
       "name": "to-questionnaire",
-      "destination": "skills/to-questionnaire",
-      "source": {
-        "repository": "https://github.com/mattpocock/skills.git",
-        "commit": "3cca18b368ae95cdbdebbff572ccafa662551015",
-        "path": "skills/productivity/to-questionnaire",
-        "sha256": "b466bccf97dd0049a700d793f93b96704aacb9ba0b1e40be2184cbd9d86dbca9"
-      },
       "license": "licenses/mattpocock-skills-MIT.txt",
-      "bundle_sha256": "b466bccf97dd0049a700d793f93b96704aacb9ba0b1e40be2184cbd9d86dbca9"
+      "path": "skills/productivity/to-questionnaire",
+      "root": "sources/mattpocock-skills"
     },
     {
       "name": "frontend-design",
-      "destination": "skills/frontend-design",
-      "source": {
-        "repository": "https://github.com/anthropics/skills.git",
-        "commit": "34040c9c568585f6929bedeaad110ad08f079624",
-        "path": "skills/frontend-design",
-        "sha256": "fe9b4cf56bf64284c43cdb31d6c9a09eb714bfd32f0aa57b8a98a73f00a9e859"
-      },
       "license": "licenses/anthropics-frontend-design-Apache-2.0.txt",
-      "bundle_sha256": "fe9b4cf56bf64284c43cdb31d6c9a09eb714bfd32f0aa57b8a98a73f00a9e859"
+      "path": "skills/frontend-design",
+      "root": "sources/anthropics-skills"
     },
     {
       "name": "web-design-guidelines",
-      "destination": "skills/web-design-guidelines",
-      "source": {
-        "repository": "https://github.com/vercel-labs/agent-skills.git",
-        "commit": "063bee94c3f4df8453406c830b0a7df0f2860278",
-        "path": "skills/web-design-guidelines",
-        "sha256": "ea51a3dab735005b38e5a34fe5501d248ceadbbbc1aed823c8a2f87cf62441a9"
-      },
       "license": "licenses/vercel-agent-skills-MIT.txt",
-      "bundle_sha256": "ea51a3dab735005b38e5a34fe5501d248ceadbbbc1aed823c8a2f87cf62441a9"
+      "path": "skills/web-design-guidelines",
+      "root": "sources/vercel-agent-skills"
     },
     {
       "name": "vercel-react-best-practices",
-      "destination": "skills/vercel-react-best-practices",
-      "source": {
-        "repository": "https://github.com/vercel-labs/agent-skills.git",
-        "commit": "063bee94c3f4df8453406c830b0a7df0f2860278",
-        "path": "skills/react-best-practices",
-        "sha256": "7190801e4325915b8a956e5fd5e6c24176506ba72b7e49ddd74d4c9b8df9bd81"
-      },
       "license": "licenses/vercel-agent-skills-MIT.txt",
-      "bundle_sha256": "7190801e4325915b8a956e5fd5e6c24176506ba72b7e49ddd74d4c9b8df9bd81"
+      "path": "skills/react-best-practices",
+      "root": "sources/vercel-agent-skills"
     },
     {
       "name": "vercel-composition-patterns",
-      "destination": "skills/vercel-composition-patterns",
-      "source": {
-        "repository": "https://github.com/vercel-labs/agent-skills.git",
-        "commit": "063bee94c3f4df8453406c830b0a7df0f2860278",
-        "path": "skills/composition-patterns",
-        "sha256": "ee2459eb78dec044e864830c613a32e7ccaa59a5f85d56be7f05a5fe6172b0ce"
-      },
       "license": "licenses/vercel-agent-skills-MIT.txt",
-      "bundle_sha256": "ee2459eb78dec044e864830c613a32e7ccaa59a5f85d56be7f05a5fe6172b0ce"
+      "path": "skills/composition-patterns",
+      "root": "sources/vercel-agent-skills"
     },
     {
       "name": "property-based-testing",
-      "destination": "skills/property-based-testing",
-      "source": {
-        "repository": "https://github.com/trailofbits/skills.git",
-        "commit": "027bc47a69a276c340717bafdc3708263094b9a4",
-        "path": "plugins/property-based-testing/skills/property-based-testing",
-        "sha256": "ff7c6aa3d5f161144c64f3ce1e851db30bfcd685c16d4f56ff9937a7f894a296"
-      },
       "license": "licenses/trailofbits-skills-CC-BY-SA-4.0.txt",
-      "bundle_sha256": "ff7c6aa3d5f161144c64f3ce1e851db30bfcd685c16d4f56ff9937a7f894a296"
+      "path": "plugins/property-based-testing/skills/property-based-testing",
+      "root": "sources/trailofbits-skills"
     },
     {
       "name": "mutation-testing",
-      "destination": "skills/mutation-testing",
-      "source": {
-        "repository": "https://github.com/trailofbits/skills.git",
-        "commit": "027bc47a69a276c340717bafdc3708263094b9a4",
-        "path": "plugins/mutation-testing/skills/mutation-testing",
-        "sha256": "09c770093a7cd3f07ead243aca63b704b3c5befb4236124115b242f1851fbfc5"
-      },
       "license": "licenses/trailofbits-skills-CC-BY-SA-4.0.txt",
-      "bundle_sha256": "09c770093a7cd3f07ead243aca63b704b3c5befb4236124115b242f1851fbfc5"
+      "path": "plugins/mutation-testing/skills/mutation-testing",
+      "root": "sources/trailofbits-skills"
     },
     {
       "name": "sharp-edges",
-      "destination": "skills/sharp-edges",
-      "source": {
-        "repository": "https://github.com/trailofbits/skills.git",
-        "commit": "027bc47a69a276c340717bafdc3708263094b9a4",
-        "path": "plugins/sharp-edges/skills/sharp-edges",
-        "sha256": "334a32dea154fe39aa267e0c7bb41682967205c667a5d1b5a0cf41dce9b028be"
-      },
       "license": "licenses/trailofbits-skills-CC-BY-SA-4.0.txt",
-      "bundle_sha256": "65e5284288abe53478554d825def05f00a6d65d7d3643351d7ba6f07731fc140"
+      "path": "plugins/sharp-edges/skills/sharp-edges",
+      "root": "sources/trailofbits-skills"
     },
     {
       "name": "cli-for-agents",
-      "destination": "skills/cli-for-agents",
-      "source": {
-        "repository": "https://github.com/theacrat/pstack-generic.git",
-        "commit": "4fe019dcedbb6d2aed9535484f7f75267291960c",
-        "path": "cli-for-agent/skills/cli-for-agents",
-        "sha256": "ce82f424400d0d03ee3f09860d3ba2b26f3ec5b7112777fc4236e240f5d7cc96"
-      },
       "license": "licenses/cursor-pstack-MIT.txt",
-      "bundle_sha256": "ce82f424400d0d03ee3f09860d3ba2b26f3ec5b7112777fc4236e240f5d7cc96"
+      "path": "cli-for-agent/skills/cli-for-agents",
+      "root": "plugins/pstack"
     },
     {
       "name": "make-pr-easy-to-review",
-      "destination": "skills/make-pr-easy-to-review",
-      "source": {
-        "repository": "https://github.com/theacrat/pstack-generic.git",
-        "commit": "4fe019dcedbb6d2aed9535484f7f75267291960c",
-        "path": "cursor-team-kit/skills/make-pr-easy-to-review",
-        "sha256": "9060cbb1f1c649cb8b2b415bbc8b26b66a21015137b54f0478aaf06d0f6efec6"
-      },
       "license": "licenses/cursor-pstack-MIT.txt",
-      "bundle_sha256": "9060cbb1f1c649cb8b2b415bbc8b26b66a21015137b54f0478aaf06d0f6efec6"
+      "path": "cursor-team-kit/skills/make-pr-easy-to-review",
+      "root": "plugins/pstack"
     },
     {
       "name": "computer-use",
-      "destination": "skills/computer-use",
-      "source": {
-        "repository": "https://github.com/stablyai/orca.git",
-        "commit": "0b1567a7b1adde0260598426730a38fe99f78852",
-        "path": "skills/computer-use",
-        "sha256": "ab742e530453b5aad077fdb20f2e19c6cb56129c598639c30a31149d41c74bee"
-      },
       "license": "licenses/stablyai-orca-MIT.txt",
-      "bundle_sha256": "ab742e530453b5aad077fdb20f2e19c6cb56129c598639c30a31149d41c74bee"
+      "path": "skills/computer-use",
+      "root": "sources/orca"
     },
     {
       "name": "linear-tickets",
-      "destination": "skills/linear-tickets",
-      "source": {
-        "repository": "https://github.com/stablyai/orca.git",
-        "commit": "0b1567a7b1adde0260598426730a38fe99f78852",
-        "path": "skills/linear-tickets",
-        "sha256": "771c07fbe8be98e5910e6b39fc9a7b5378025276c8cbe789ed88391dd97a6a17"
-      },
       "license": "licenses/stablyai-orca-MIT.txt",
-      "bundle_sha256": "771c07fbe8be98e5910e6b39fc9a7b5378025276c8cbe789ed88391dd97a6a17"
+      "path": "skills/linear-tickets",
+      "root": "sources/orca"
     },
     {
       "name": "orca-cli",
-      "destination": "skills/orca-cli",
-      "source": {
-        "repository": "https://github.com/stablyai/orca.git",
-        "commit": "0b1567a7b1adde0260598426730a38fe99f78852",
-        "path": "skills/orca-cli",
-        "sha256": "5d7dcb077bed10f97e0ae9f072858f80ca586503d941682c0332fc8249d29a7d"
-      },
       "license": "licenses/stablyai-orca-MIT.txt",
-      "bundle_sha256": "5d7dcb077bed10f97e0ae9f072858f80ca586503d941682c0332fc8249d29a7d"
+      "path": "skills/orca-cli",
+      "root": "sources/orca"
     },
     {
       "name": "orca-emulator",
-      "destination": "skills/orca-emulator",
-      "source": {
-        "repository": "https://github.com/stablyai/orca.git",
-        "commit": "0b1567a7b1adde0260598426730a38fe99f78852",
-        "path": "skills/orca-emulator",
-        "sha256": "a5f98f7699723393f630a8cdbbf71b04778b726f5614afd78b9099aefd352fd8"
-      },
       "license": "licenses/stablyai-orca-MIT.txt",
-      "bundle_sha256": "a5f98f7699723393f630a8cdbbf71b04778b726f5614afd78b9099aefd352fd8"
+      "path": "skills/orca-emulator",
+      "root": "sources/orca"
     },
     {
       "name": "orca-emulator-android",
-      "destination": "skills/orca-emulator-android",
-      "source": {
-        "repository": "https://github.com/stablyai/orca.git",
-        "commit": "0b1567a7b1adde0260598426730a38fe99f78852",
-        "path": "skills/orca-emulator-android",
-        "sha256": "96d8c7a6b9480e3b362334242b98e12a2568ddcc38a6fa841fec3bf38a903b7b"
-      },
       "license": "licenses/stablyai-orca-MIT.txt",
-      "bundle_sha256": "96d8c7a6b9480e3b362334242b98e12a2568ddcc38a6fa841fec3bf38a903b7b"
+      "path": "skills/orca-emulator-android",
+      "root": "sources/orca"
     },
     {
       "name": "orca-linear",
-      "destination": "skills/orca-linear",
-      "source": {
-        "repository": "https://github.com/stablyai/orca.git",
-        "commit": "0b1567a7b1adde0260598426730a38fe99f78852",
-        "path": "skills/orca-linear",
-        "sha256": "43a2748df2691ea184858a9ba5763933130a03185328715451cd8d2679e3ea8b"
-      },
       "license": "licenses/stablyai-orca-MIT.txt",
-      "bundle_sha256": "43a2748df2691ea184858a9ba5763933130a03185328715451cd8d2679e3ea8b"
+      "path": "skills/orca-linear",
+      "root": "sources/orca"
     },
     {
       "name": "orca-per-workspace-env",
-      "destination": "skills/orca-per-workspace-env",
-      "source": {
-        "repository": "https://github.com/stablyai/orca.git",
-        "commit": "0b1567a7b1adde0260598426730a38fe99f78852",
-        "path": "skills/orca-per-workspace-env",
-        "sha256": "4504a0d6c516020f82368f3db3cb154a2300c652025588558034d7c2f968c6eb"
-      },
       "license": "licenses/stablyai-orca-MIT.txt",
-      "bundle_sha256": "4504a0d6c516020f82368f3db3cb154a2300c652025588558034d7c2f968c6eb"
+      "path": "skills/orca-per-workspace-env",
+      "root": "sources/orca"
     },
     {
       "name": "orchestration",
-      "destination": "skills/orchestration",
-      "source": {
-        "repository": "https://github.com/stablyai/orca.git",
-        "commit": "0b1567a7b1adde0260598426730a38fe99f78852",
-        "path": "skills/orchestration",
-        "sha256": "f5efcfb0015f7656286272aa57ae61a26ca98408313c80c456567c28a40bca75"
-      },
       "license": "licenses/stablyai-orca-MIT.txt",
-      "bundle_sha256": "f5efcfb0015f7656286272aa57ae61a26ca98408313c80c456567c28a40bca75"
+      "path": "skills/orchestration",
+      "root": "sources/orca"
     }
   ]
 }

@@ -35,15 +35,15 @@ Run the installer again if you move the checkout. It recreates links for the new
 
 - `plugins/pstack/` pins the complete pstack repository as a Git submodule. Keeping the bundle intact preserves its shared docs and agents.
 - `plugins/1password/` and `plugins/cloudflare/` pin those plugin repositories as submodules. The installer copies each one into `~/.cursor/plugins/local/` and links their skills into the shared skill directories.
-- `skills/` contains selected upstream skill snapshots with their supporting files. `sources.json` records revisions and provenance. `licenses/` retains upstream licences.
+- `sources/` pins upstream skill repositories as Git submodules. `skills/` holds symlinks into those checkouts. `sources.json` lists which upstream skills to install and where they live in each submodule; commit pins live only in Git. `licenses/` retains upstream licence text.
 - `personal/skills/` holds your editable personal guidance, currently `thea-mode`. Its initial source is recorded in `personal/source.json`.
 - `install.sh` installs this selection and `--check` checks local links, bundle files and native plugin registrations.
 
 Edit personal skills here, then commit and push. Make upstream upgrades here too, review the diff, and commit the new snapshots or submodule revision before pulling them onto another device. Use this repository to update this selection. `npx skills update` manages a separate lockfile and can overwrite linked files.
 
-For standalone upgrades, change the relevant full commit SHAs in `sources.json`, then run `python3 scripts/vendor-skills.py --refresh --update-hashes`. Review skill changes and upstream licence changes before committing. `--refresh` without `--update-hashes` restores the recorded versions, and `--check` verifies their recorded hashes offline. Keep personal edits under `personal/skills/` so an upstream refresh does not replace them.
+For standalone skill upgrades, fetch and check out the reviewed commit inside the relevant submodule under `sources/` (or `plugins/pstack` for the two pstack skills), commit the updated submodule pointer in this repository, then run `python3 scripts/vendor-skills.py --refresh` if you changed the manifest. `python3 scripts/vendor-skills.py --check` verifies that every listed skill is linked. Keep personal edits under `personal/skills/` so they are not replaced.
 
-For pstack, 1Password, or Cloudflare, fetch in `plugins/<name>`, check out the reviewed upstream commit, then commit the changed submodule pointer here. The other sibling plugins in the pstack repository are not installed automatically.
+For pstack, 1Password, or Cloudflare, fetch in `plugins/<name>`, check out the reviewed upstream commit, then commit the changed submodule pointer here. The `cli-for-agents` and `make-pr-easy-to-review` skills symlink into `plugins/pstack` and move with that submodule. The other sibling plugins in the pstack repository are not installed automatically.
 
 Application settings, model choices, authentication, MCP connections and session histories stay local to each device. This repository synchronises skills and the plugin bundles.
 
