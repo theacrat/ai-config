@@ -51,7 +51,7 @@ try {
     throw new Error("service-auth-failed");
   const response = await fetch(`${base}/snapshot`, {
     headers,
-    signal: AbortSignal.timeout(12000),
+    signal: AbortSignal.timeout(18000),
   });
   if (response.status !== 200) {
     const body: unknown = await response.json();
@@ -68,6 +68,12 @@ try {
     throw new Error(code);
   }
   const snapshot = snapshotSchema.parse(await response.json());
+  if (
+    snapshot.accounts.some(
+      (a) => ["codex", "antigravity"].includes(a.provider) && a.live?.status !== "fresh",
+    )
+  )
+    throw new Error("live-quota-failed");
   console.log(
     JSON.stringify(
       {
@@ -77,6 +83,21 @@ try {
         accounts: snapshot.accounts.length,
         omitted: snapshot.omitted,
         providerCount: new Set(snapshot.accounts.map((a) => a.provider)).size,
+        liveFresh: snapshot.accounts.filter((a) => a.live?.status === "fresh").length,
+        liveFailed: snapshot.accounts.filter((a) => a.live?.status === "error").length,
+        codexFresh: snapshot.accounts.filter(
+          (a) => a.provider === "codex" && a.live?.status === "fresh",
+        ).length,
+        antigravityFresh: snapshot.accounts.filter(
+          (a) => a.provider === "antigravity" && a.live?.status === "fresh",
+        ).length,
+        liveWindows: snapshot.accounts.reduce(
+          (sum, a) => sum + (a.live?.observation?.windows.length ?? 0),
+          0,
+        ),
+        bankCountsKnown: snapshot.accounts.filter(
+          (a) => a.live?.bank?.available !== null && a.live?.bank?.available !== undefined,
+        ).length,
         accountWindows: snapshot.accounts.reduce((sum, a) => sum + a.observation.windows.length, 0),
         modelObservations: snapshot.accounts.reduce((sum, a) => sum + a.models.length, 0),
         unknownQuotas: snapshot.accounts.filter((a) => !hasQuotaSignals(a.observation)).length,
@@ -99,6 +120,7 @@ try {
       "invalid-response",
       "too-large",
       "snapshot-failed",
+      "live-quota-failed",
     ].includes(error.message)
       ? error.message
       : "verification-failed";

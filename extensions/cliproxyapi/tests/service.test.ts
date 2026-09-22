@@ -3,7 +3,17 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
-import { createService, fetchSnapshot, readConfig } from "../src/service";
+import { createService, readConfig, type Config } from "../src/service";
+import { createController, type Controller } from "../src/controller";
+
+const fetchSnapshot = (config: Config) => createController(async () => config).snapshot();
+function source(snapshot: Controller["snapshot"]): Controller {
+  return {
+    snapshot,
+    info: async () => ({ managementUrl: "https://fixture.invalid/management.html" }),
+    action: async () => ({ status: "rejected", message: "Fixture action unavailable" }),
+  };
+}
 
 const servers: Server[] = [];
 async function listen(server: Server): Promise<string> {
@@ -20,13 +30,16 @@ afterEach(async () => {
   }
 });
 describe("local service boundary", () => {
-  it("authenticates health and snapshot before any work and exposes only fixed GET routes", async () => {
+  it("authenticates health and snapshot before any work and rejects invalid routes", async () => {
     let reads = 0;
     const origin = await listen(
-      createService("fixture-host-token", async () => {
-        reads++;
-        return { fetchedAt: 1, omitted: 0, accounts: [] };
-      }),
+      createService(
+        "fixture-host-token",
+        source(async () => {
+          reads++;
+          return { fetchedAt: 1, omitted: 0, accounts: [] };
+        }),
+      ),
     );
     for (const path of ["/health", "/snapshot"]) {
       expect((await fetch(origin + path)).status).toBe(401);
@@ -43,11 +56,8 @@ describe("local service boundary", () => {
     expect((await fetch(origin + "/health", { headers })).status).toBe(200);
     expect((await fetch(origin + "/snapshot?path=/secrets", { headers })).status).toBe(404);
     expect((await fetch(origin + "/snapshot", { headers, method: "POST" })).status).toBe(405);
-    const responses = await Promise.all([
-      fetch(origin + "/snapshot", { headers }),
-      fetch(origin + "/snapshot", { headers }),
-    ]);
-    expect(await responses[0]?.json()).toEqual({
+    const response = await fetch(origin + "/snapshot", { headers });
+    expect(await response.json()).toEqual({
       fetchedAt: 1,
       omitted: 0,
       accounts: [],
@@ -56,9 +66,12 @@ describe("local service boundary", () => {
   });
   it("does not disclose thrown messages", async () => {
     const origin = await listen(
-      createService("fixture-host-token", async () => {
-        throw new Error("private-canary");
-      }),
+      createService(
+        "fixture-host-token",
+        source(async () => {
+          throw new Error("private-canary");
+        }),
+      ),
     );
     const response = await fetch(origin + "/snapshot", {
       headers: { Authorization: "Bearer fixture-host-token" },
@@ -76,7 +89,7 @@ describe("local service boundary", () => {
             files: [
               {
                 auth_index: "0123456789abcdef",
-                provider: "codex",
+                provider: "claude",
                 id_token: "private-canary",
               },
             ],

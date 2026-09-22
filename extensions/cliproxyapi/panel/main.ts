@@ -3,6 +3,8 @@ import { applyHostReady } from "@openchamber/sdk/ui";
 import { formatTime } from "../src/time";
 import {
   snapshotSchema,
+  actionResultSchema,
+  type Action,
   hasQuotaSignals,
   type Account,
   type Observation,
@@ -25,6 +27,8 @@ function required<T extends Element>(selector: string, kind: { new (): T }): T {
   return node;
 }
 const refreshButton = required("#refresh", HTMLButtonElement);
+const managementButton = required("#management", HTMLButtonElement);
+let managementUrl: string | null = null;
 const search = required("#search", HTMLInputElement);
 const provider = required("#provider", HTMLSelectElement);
 const health = required("#health", HTMLSelectElement);
@@ -41,7 +45,18 @@ let ready = false;
 let failure = "";
 let pausePolling = false;
 const expanded = new Set<string>();
+const pendingActions = new Set<string>();
+const actionMessages = new Map<string, string>();
+let confirming: string | null = null;
+let revision = 0;
 const staleAfter = 15 * 60 * 1000;
+function closeConfirmation(accountId: string): void {
+  confirming = null;
+  render();
+  [...accounts.querySelectorAll<HTMLButtonElement>("button[data-reset-account]")]
+    .find((button) => button.dataset.resetAccount === accountId)
+    ?.focus();
+}
 
 function age(time: number): string {
   const minutes = Math.max(0, Math.floor((Date.now() - time) / 60000));
@@ -121,6 +136,7 @@ function observationNode(observation: Observation): HTMLElement {
       ),
     );
     row.append(title);
+    if (window.description) row.append(element("p", window.description, "observation-time"));
     if (window.usedPercent !== null) {
       const progress = element("progress", "", window.usedPercent >= 90 ? "high" : "");
       progress.max = 100;
@@ -162,7 +178,119 @@ function accountNode(account: Account): HTMLElement {
   if (account.disabled) badges.append(element("span", "Disabled", "badge warning"));
   if (account.unavailable) badges.append(element("span", "Unavailable", "badge warning"));
   heading.append(name, badges);
-  article.append(heading, observationNode(account.observation));
+  article.append(heading);
+  const live = account.live;
+  if (live && live.status !== "unsupported") {
+    article.append(
+      element(
+        "p",
+        live.status === "error"
+          ? `Stale / unavailable · ${live.error}`
+          : `Live provider reading · ${live.observation?.observedAt ? age(live.observation.observedAt) : "time unknown"}`,
+        live.status === "error" ? "error" : "observation-time",
+      ),
+    );
+    article.append(observationNode(live.observation ?? account.observation));
+    if (live.observation) {
+      const saved = element("details");
+      saved.append(
+        element("summary", "Saved CPA observation"),
+        observationNode(account.observation),
+      );
+      article.append(saved);
+    }
+  } else article.append(observationNode(account.observation));
+  if (live?.bank) {
+    const bank = live.bank;
+    article.append(
+      element(
+        "p",
+        `Banked resets: ${bank.available ?? "unknown"} available · ${bank.applicable ?? "unknown"} applicable`,
+        "observation-time",
+      ),
+    );
+    if (bank.expiries[0])
+      article.append(
+        element("p", `Next banked reset expiry · ${timeLabel(bank.expiries[0])}`, "window-time"),
+      );
+    if (bank.error) article.append(element("p", bank.error, "error"));
+  }
+  const controls = element("div", "", "account-actions");
+  function button(label: string, action: Action, enabled: boolean) {
+    const node = element("button", label);
+    node.type = "button";
+    node.disabled = pendingActions.has(account.id) || !enabled;
+    node.addEventListener("click", () => {
+      void runAction(action);
+    });
+    controls.append(node);
+  }
+  if (account.actions) {
+    button(
+      account.disabled ? "Enable" : "Disable",
+      { kind: "set-disabled", accountId: account.id, disabled: !account.disabled },
+      account.actions.status && account.disabled !== null,
+    );
+    button(
+      "Refresh credentials",
+      { kind: "refresh-auth", accountId: account.id },
+      account.actions.refreshAuth,
+    );
+    if (account.provider === "codex") {
+      const reset = element("button", "Use banked reset");
+      reset.dataset.resetAccount = account.id;
+      reset.type = "button";
+      reset.disabled = pendingActions.has(account.id) || !account.actions.bankReset;
+      reset.addEventListener("click", () => {
+        confirming = account.id;
+        render();
+        document.getElementById("reset-cancel")?.focus();
+      });
+      controls.append(reset);
+    }
+  }
+  article.append(controls);
+  if (confirming === account.id) {
+    const confirmation = element("section", "", "reset-confirmation");
+    confirmation.setAttribute("role", "group");
+    confirmation.setAttribute("aria-label", "Confirm banked reset");
+    confirmation.append(
+      element(
+        "p",
+        `Consume one banked reset for ${account.name}? This spends an available reset credit.`,
+      ),
+    );
+    const cancel = element("button", "Cancel");
+    cancel.type = "button";
+    cancel.id = "reset-cancel";
+    cancel.addEventListener("click", () => {
+      closeConfirmation(account.id);
+    });
+    const confirm = element("button", "Confirm use of banked reset");
+    confirm.type = "button";
+    confirm.addEventListener("click", () => {
+      confirming = null;
+      void runAction({ kind: "consume-reset", accountId: account.id });
+    });
+    confirmation.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        closeConfirmation(account.id);
+      }
+    });
+    confirmation.append(cancel, confirm);
+    article.append(confirmation);
+  }
+  if (pendingActions.has(account.id) || actionMessages.has(account.id)) {
+    const result = element(
+      "p",
+      pendingActions.has(account.id)
+        ? "Account action in progress…"
+        : actionMessages.get(account.id),
+      "action-result",
+    );
+    result.setAttribute("role", "status");
+    article.append(result);
+  }
   if (account.disabled === null || account.unavailable === null)
     article.append(element("p", "Availability partly unknown", "unknown"));
   if (account.cooldowns === null)
@@ -226,7 +354,8 @@ function render(): void {
       (health.value === "all" ||
         (health.value === "attention" && needsAttention(account)) ||
         (health.value === "disabled" && (account.disabled || account.health === "disabled")) ||
-        (health.value === "unknown" && !hasQuotaSignals(account.observation))),
+        (health.value === "unknown" &&
+          !hasQuotaSignals(account.live?.observation ?? account.observation))),
   );
   summary.textContent = `${filtered.length} of ${snapshot.accounts.length} accounts${snapshot.omitted ? ` · ${snapshot.omitted} omitted (invalid index or display limit)` : ""}`;
   if (!filtered.length)
@@ -252,14 +381,16 @@ const errors: Record<string, string> = {
     "CPA returned an unsupported response. Check the server version, then Refresh.",
   "too-large": "CPA response exceeded the safety limit. Reduce the account set before retrying.",
 };
-async function refresh(): Promise<void> {
-  if (busy || !ready || document.hidden) return;
+async function refresh(manual = false): Promise<void> {
+  if (busy || !ready || document.hidden || pendingActions.size) return;
+  if (confirming && !manual) return;
+  const startedRevision = revision;
   busy = true;
   render();
   try {
     const result = await host.serviceRequest({
-      method: "GET",
-      path: "/snapshot",
+      method: manual ? "POST" : "GET",
+      path: manual ? "/refresh" : "/snapshot",
     });
     if (result.status !== 200) {
       let message = "Local service could not refresh. Check setup and try Refresh.";
@@ -273,6 +404,7 @@ async function refresh(): Promise<void> {
       failure = message;
       return;
     }
+    if (startedRevision !== revision) return;
     snapshot = snapshotSchema.parse(JSON.parse(result.body));
     failure = "";
     pausePolling = false;
@@ -298,7 +430,60 @@ async function refresh(): Promise<void> {
 }
 refreshButton.addEventListener("click", () => {
   pausePolling = false;
-  void refresh();
+  void loadInfo();
+  void refresh(true);
+});
+async function runAction(action: Action): Promise<void> {
+  if (pendingActions.has(action.accountId)) return;
+  pendingActions.add(action.accountId);
+  revision++;
+  render();
+  actionMessages.delete(action.accountId);
+  try {
+    const response = await host.serviceRequest({
+      method: "POST",
+      path: "/actions",
+      body: JSON.stringify(action),
+    });
+    if (response.status !== 200) throw new Error();
+    const result = actionResultSchema.parse(JSON.parse(response.body));
+    actionMessages.set(action.accountId, result.message);
+    const current = await host.serviceRequest({ method: "GET", path: "/snapshot" });
+    if (current.status === 200) snapshot = snapshotSchema.parse(JSON.parse(current.body));
+  } catch {
+    if (!actionMessages.has(action.accountId))
+      actionMessages.set(
+        action.accountId,
+        "Outcome uncertain. Check current account state before trying again; no automatic retry was made.",
+      );
+  } finally {
+    pendingActions.delete(action.accountId);
+    render();
+  }
+}
+async function loadInfo(): Promise<void> {
+  try {
+    const result = await host.serviceRequest({ method: "GET", path: "/info" });
+    const data: unknown = JSON.parse(result.body);
+    if (
+      result.status === 200 &&
+      data &&
+      typeof data === "object" &&
+      "managementUrl" in data &&
+      typeof data.managementUrl === "string"
+    ) {
+      managementUrl = data.managementUrl;
+      managementButton.disabled = false;
+    }
+  } catch {
+    /* Setup feedback is provided by refresh. */
+  }
+}
+managementButton.addEventListener("click", () => {
+  if (managementUrl)
+    void host.openUrl(managementUrl).catch(() => {
+      connection.textContent = "Could not open management in the browser.";
+    });
 });
 search.addEventListener("input", render);
 provider.addEventListener("change", render);
@@ -308,6 +493,7 @@ host.onReady((context) => {
   applyHostReady(context, document.documentElement);
   if (!ready) {
     ready = true;
+    void loadInfo();
     void refresh();
   }
 });

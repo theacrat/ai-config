@@ -2,7 +2,7 @@
   "name": "openchamber-cliproxyapi",
   "version": "1.0.0",
   "private": true,
-  "description": "Passive CLIProxyAPI quota and account health panel",
+  "description": "CLIProxyAPI live quota and account controls panel",
   "scripts": {
     "build": "bun scripts/build.ts",
     "typecheck": "tsc --noEmit",

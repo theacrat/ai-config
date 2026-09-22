@@ -34,6 +34,12 @@ h1 {
   font-size: 17px;
   font-weight: 650;
 }
+header {
+  flex-wrap: wrap;
+}
+header > div {
+  flex: 1 1 180px;
+}
 h2 {
   font-size: 14px;
   font-weight: 600;
@@ -154,6 +160,7 @@ select {
 }
 .window-heading {
   font-size: 12px;
+  overflow-wrap: anywhere;
 }
 .window-heading strong {
   font-variant-numeric: tabular-nums;
@@ -234,4 +241,21 @@ footer {
   .badges {
     justify-content: start;
   }
+}
+.account-actions,
+.reset-confirmation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.reset-confirmation {
+  border: 1px solid var(--oc-border, #777);
+  padding: 12px;
+}
+.reset-confirmation p {
+  flex-basis: 100%;
+}
+.action-result {
+  overflow-wrap: anywhere;
 }

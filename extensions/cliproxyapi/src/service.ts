@@ -5,8 +5,10 @@ import { constants } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
-import { parseSnapshot } from "./parser";
-import type { Snapshot } from "./snapshot";
+import { actionSchema } from "./snapshot";
+import { createController, type Controller } from "./controller";
+import { ServiceError } from "./upstream";
+export { ServiceError } from "./upstream";
 
 export const configPath = () => join(homedir(), ".config/openchamber/cliproxyapi.json");
 const configSchema = z.object({
@@ -18,18 +20,6 @@ const configSchema = z.object({
     .refine((value) => value.trim() === value && !/[\r\n]/.test(value)),
 });
 export type Config = z.infer<typeof configSchema>;
-export class ServiceError extends Error {
-  constructor(
-    readonly code:
-      | "setup"
-      | "upstream-auth"
-      | "upstream-unavailable"
-      | "invalid-response"
-      | "too-large",
-  ) {
-    super(code);
-  }
-}
 export async function readConfig(path = configPath()): Promise<Config> {
   try {
     const file = await open(path, constants.O_RDONLY | constants.O_NONBLOCK);
@@ -55,67 +45,13 @@ export async function readConfig(path = configPath()): Promise<Config> {
     throw new ServiceError("setup");
   }
 }
-export async function fetchSnapshot(config: Config): Promise<Snapshot> {
-  try {
-    const response = await fetch(new URL("/v0/management/auth-files", config.baseUrl), {
-      headers: {
-        Authorization: `Bearer ${config.managementKey}`,
-        Accept: "application/json",
-      },
-      redirect: "error",
-      signal: AbortSignal.timeout(8000),
-    });
-    if (!response.ok) {
-      await response.body?.cancel();
-      throw new ServiceError(
-        response.status === 401 || response.status === 403
-          ? "upstream-auth"
-          : "upstream-unavailable",
-      );
-    }
-    const reader = response.body?.getReader();
-    if (!reader) throw new ServiceError("invalid-response");
-    const chunks: Uint8Array[] = [];
-    let size = 0;
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        size += value.byteLength;
-        if (size > 4 * 1024 * 1024) {
-          await reader.cancel();
-          throw new ServiceError("too-large");
-        }
-        chunks.push(value);
-      }
-    } finally {
-      reader.releaseLock();
-    }
-    let snapshot: Snapshot;
-    try {
-      snapshot = parseSnapshot(JSON.parse(Buffer.concat(chunks).toString("utf8")));
-    } catch {
-      throw new ServiceError("invalid-response");
-    }
-    while (Buffer.byteLength(JSON.stringify(snapshot)) > 240000 && snapshot.accounts.length) {
-      snapshot.accounts.pop();
-      snapshot.omitted++;
-    }
-    return snapshot;
-  } catch (error) {
-    throw error instanceof ServiceError ? error : new ServiceError("upstream-unavailable");
-  }
-}
-
 export function createService(
   token: string,
-  load: () => Promise<Snapshot> = async () => fetchSnapshot(await readConfig()),
+  source: Controller = createController(readConfig),
 ): Server {
   if (!token || token.length > 4096 || /[\r\n]/.test(token))
     throw new Error("Invalid service token");
   const expected = Buffer.from(`Bearer ${token}`);
-  let pending: Promise<Snapshot> | null = null;
-  let last: { snapshot: Snapshot; at: number } | null = null;
   const server = createServer(async (req, res) => {
     res.setHeader("Content-Type", "application/json");
     res.setHeader("Cache-Control", "no-store");
@@ -129,32 +65,54 @@ export function createService(
       send(401, { error: "unauthorized" });
       return;
     }
-    if (req.method !== "GET") {
-      send(405, { error: "method-not-allowed" });
-      return;
-    }
-    if (req.url === "/health") {
+    if (req.method === "GET" && req.url === "/health") {
       send(200, { ok: true });
       return;
     }
-    if (req.url !== "/snapshot") {
-      send(404, { error: "not-found" });
-      return;
-    }
     try {
-      if (last && Date.now() - last.at < 3000) {
-        send(200, last.snapshot);
+      if (req.url === "/info" && req.method === "GET") {
+        send(200, await source.info());
         return;
       }
-      pending ??= load()
-        .then((snapshot) => {
-          last = { snapshot, at: Date.now() };
-          return snapshot;
-        })
-        .finally(() => {
-          pending = null;
-        });
-      send(200, await pending);
+      if (req.url === "/actions" && req.method === "POST") {
+        let size = 0;
+        const chunks: Buffer[] = [];
+        for await (const chunk of req) {
+          const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+          size += buffer.byteLength;
+          if (size > 4096) {
+            send(413, { error: "too-large" });
+            return;
+          }
+          chunks.push(buffer);
+        }
+        let body: unknown;
+        try {
+          body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+        } catch {
+          send(400, { error: "invalid-action" });
+          return;
+        }
+        const parsed = actionSchema.safeParse(body);
+        if (!parsed.success) {
+          send(400, { error: "invalid-action" });
+          return;
+        }
+        send(200, await source.action(parsed.data));
+        return;
+      }
+      if (
+        (req.url === "/refresh" && req.method === "POST") ||
+        (req.url === "/snapshot" && req.method === "GET")
+      ) {
+        send(200, await source.snapshot(req.url === "/refresh"));
+        return;
+      }
+      if (req.method !== "GET") {
+        send(405, { error: "method-not-allowed" });
+        return;
+      }
+      send(404, { error: "not-found" });
     } catch (error) {
       send(503, {
         error: error instanceof ServiceError ? error.code : "upstream-unavailable",

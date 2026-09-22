@@ -33,6 +33,7 @@ const windowSchema = z.object({
   usedPercent: z.number().finite().min(0).max(100).nullable(),
   minutes: z.number().finite().positive().nullable(),
   resetAt: timestamp.nullable(),
+  description: z.string().max(240).optional(),
 });
 const observationSchema = z.object({
   observedAt: timestamp.nullable(),
@@ -56,6 +57,32 @@ const observationSchema = z.object({
     })
     .nullable(),
 });
+export const bankSchema = z.object({
+  available: z.number().int().nonnegative().nullable(),
+  applicable: z.number().int().nonnegative().nullable(),
+  expiries: z.array(timestamp).max(100),
+  error: z.string().max(160).nullable(),
+});
+const liveSchema = z.object({
+  status: z.enum(["fresh", "error", "unsupported"]),
+  attemptedAt: timestamp,
+  error: z.string().max(160).nullable(),
+  observation: observationSchema.nullable(),
+  bank: bankSchema.nullable(),
+});
+export const actionSchema = z.discriminatedUnion("kind", [
+  z
+    .object({ kind: z.literal("set-disabled"), accountId: authIndexSchema, disabled: z.boolean() })
+    .strict(),
+  z.object({ kind: z.literal("refresh-auth"), accountId: authIndexSchema }).strict(),
+  z.object({ kind: z.literal("consume-reset"), accountId: authIndexSchema }).strict(),
+]);
+export type Action = z.infer<typeof actionSchema>;
+export const actionResultSchema = z.object({
+  status: z.enum(["success", "success-refresh-failed", "uncertain", "rejected", "busy"]),
+  message: z.string().max(240),
+});
+export type ActionResult = z.infer<typeof actionResultSchema>;
 export const snapshotSchema = z.object({
   fetchedAt: timestamp,
   omitted: z.number().int().min(0),
@@ -69,6 +96,10 @@ export const snapshotSchema = z.object({
         disabled: z.boolean().nullable(),
         unavailable: z.boolean().nullable(),
         observation: observationSchema,
+        live: liveSchema.optional(),
+        actions: z
+          .object({ status: z.boolean(), refreshAuth: z.boolean(), bankReset: z.boolean() })
+          .optional(),
         models: z
           .array(
             z.object({
