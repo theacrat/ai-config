@@ -49,7 +49,7 @@ Application settings, model choices, authentication, MCP connections and session
 
 ## Discover OpenCode models
 
-[`plugins/model-discovery/`](plugins/model-discovery/README.md) contains an OpenCode V1 and V2 plugin that fetches an OpenAI-compatible `/models` endpoint at startup. Its setup guide covers local installation, environment-based credentials, and model metadata defaults. Install it separately from the shared skills.
+[`plugins/model-discovery/`](plugins/model-discovery/README.md) contains an OpenCode V1 and V2 plugin for OpenAI-compatible providers. It discovers models at startup or uses explicit model lists when the server has no catalogue. All models are enabled by default. Its setup guide covers local installation, environment-based credentials, and model metadata defaults. Install it separately from the shared skills.
 
 ## Installation layout
 
