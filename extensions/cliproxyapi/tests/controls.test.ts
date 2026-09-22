@@ -485,7 +485,12 @@ describe("real service routes with fake management upstream", () => {
   });
   it.each([
     { inner: 409, outer: 200, status: "rejected" },
+    { inner: 408, outer: 200, status: "uncertain" },
+    { inner: 500, outer: 200, status: "uncertain" },
+    { inner: 502, outer: 200, status: "uncertain" },
+    { inner: 504, outer: 200, status: "uncertain" },
     { inner: 204, outer: 502, status: "uncertain" },
+    { inner: 204, outer: 408, status: "uncertain" },
   ])("distinguishes rejected and uncertain outcomes: $status", async ({ inner, outer, status }) => {
     const f = await fixture();
     f.state.innerConsumeStatus = inner;

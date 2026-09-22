@@ -36,7 +36,13 @@ export async function management(
   });
   if (!response.ok) {
     await response.body?.cancel();
-    if (options.method && response.status >= 400 && response.status < 500) throw new Rejected();
+    if (
+      options.method &&
+      response.status >= 400 &&
+      response.status < 500 &&
+      response.status !== 408
+    )
+      throw new Rejected();
     throw new ServiceError(
       response.status === 401 || response.status === 403 ? "upstream-auth" : "upstream-unavailable",
     );
@@ -85,7 +91,11 @@ export async function apiCall(
   const result = envelope.parse(
     await management(config, "api-call", { method: "POST", body: request, signal }),
   );
-  if (result.status_code < 200 || result.status_code >= 300) throw new Rejected();
+  if (result.status_code < 200 || result.status_code >= 300) {
+    if (result.status_code >= 400 && result.status_code < 500 && result.status_code !== 408)
+      throw new Rejected();
+    throw new ServiceError("upstream-unavailable");
+  }
   if (consume) return null;
   try {
     return JSON.parse(result.body);
