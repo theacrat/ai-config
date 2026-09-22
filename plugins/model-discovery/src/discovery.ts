@@ -3,7 +3,9 @@ import { z } from "zod";
 const identifier = z
   .string()
   .min(1)
+  .refine((value) => value.trim() === value && !value.includes("#"))
   .refine((value) => !["__proto__", "prototype", "constructor"].includes(value));
+const providerIdentifier = identifier.refine((value) => !value.includes("/"));
 const positive = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
 const url = z.url().refine((value) => {
   const parsed = new URL(value);
@@ -23,7 +25,7 @@ const defaults = z
   .strict();
 const source = z
   .object({
-    id: identifier,
+    id: providerIdentifier,
     baseURL: url,
     apiKeyEnv: z
       .string()

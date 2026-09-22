@@ -1,0 +1,11 @@
+#!/bin/sh
+set -eu
+
+if git diff --cached --name-only -- plugins/model-discovery | grep -q .; then
+  (cd plugins/model-discovery && bun run check)
+fi
+
+if git diff --cached --name-only -- scripts/verify-model-discovery.py | grep -q .; then
+  uv run ruff check scripts/verify-model-discovery.py
+  uv run ruff format --check scripts/verify-model-discovery.py
+fi

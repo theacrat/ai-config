@@ -8,6 +8,8 @@ Load models from an OpenAI-compatible `/models` endpoint into OpenCode V1 and V2
 
 The [V2 plugin migration guide](https://opencode.ai/v2/docs/build/plugins/migrate-v1) documents a default export with `server` for V1 and `setup` for V2. This entrypoint requires V1 1.18.29 or newer. V1 adds discovered models through its configuration hook. V2 registers a synchronous provider transform after fetching the inventory.
 
+Older V1 hosts use a separate function export in `legacy.js`, verified on 1.2.27. V2 2.0.14 resolves local plugins through their directory's `index` entrypoint, so local configuration points to `dist`. Its first catalogue read can occur before plugin activation; the host verification waits for the plugin to become active in one persistent server.
+
 Each configured source owns a provider ID and an API base URL. A shared discovery module validates options and endpoint responses, resolves a bearer token from an environment variable, and returns a typed inventory keyed by model ID. Version-specific adapters translate this inventory using each SDK's actual types.
 
 The source model contains an ID, a display name, optional context and output limits, and optional tool support. Missing metadata uses documented, configurable defaults. Model names alone do not prove reasoning, vision, pricing, or context size. Manual model definitions take precedence over discovered metadata.

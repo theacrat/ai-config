@@ -1,0 +1,47 @@
+name: Model discovery
+
+on:
+  push:
+    paths:
+      - "plugins/model-discovery/**"
+      - "scripts/verify-model-discovery.py"
+      - ".github/workflows/model-discovery.yml"
+  pull_request:
+    paths:
+      - "plugins/model-discovery/**"
+      - "scripts/verify-model-discovery.py"
+      - ".github/workflows/model-discovery.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        v1: ["1.18.29", "1.18.32"]
+    defaults:
+      run:
+        working-directory: plugins/model-discovery
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.2"
+      - run: bun install --frozen-lockfile
+      - run: bun run check
+      - uses: astral-sh/setup-uv@v10
+      - name: Check the host verification script
+        run: |
+          uv run --project ../.. ruff check ../../scripts/verify-model-discovery.py
+          uv run --project ../.. ruff format --check ../../scripts/verify-model-discovery.py
+      - name: Install verification hosts
+        run: |
+          npm install --prefix "$RUNNER_TEMP/opencode-hosts" @opencode/cli@2.0.14 opencode-ai@${{ matrix.v1 }} opencode-v1-legacy@npm:opencode-ai@1.2.27
+      - name: Verify both OpenCode hosts
+        run: >-
+          python3 ../../scripts/verify-model-discovery.py
+          --v1 "$RUNNER_TEMP/opencode-hosts/node_modules/opencode-ai/bin/opencode.exe"
+          --v2 "$RUNNER_TEMP/opencode-hosts/node_modules/@opencode/cli/bin/opencode.exe"
+          --legacy "$RUNNER_TEMP/opencode-hosts/node_modules/opencode-v1-legacy/bin/opencode"

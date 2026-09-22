@@ -344,8 +344,8 @@ describe("discovery", () => {
     expect(JSON.stringify(diagnostics)).not.toMatch(/secret|127\.0\.0\.1|Bearer/);
   });
 
-  it.each(["__proto__", "prototype", "constructor"])(
-    "rejects dangerous model ID %s without a partial inventory",
+  it.each(["__proto__", "prototype", "constructor", "coder#q4", " coder"])(
+    "rejects invalid model ID %s without a partial inventory",
     async (id) => {
       const baseURL = await endpoint((_request, response) =>
         response.end(JSON.stringify({ data: [{ id: "valid" }, { id }] })),
@@ -368,6 +368,8 @@ describe("discovery", () => {
         { id: "same", baseURL },
       ],
       [{ id: "__proto__", baseURL }],
+      [{ id: "org/local", baseURL }],
+      [{ id: "local#one", baseURL }],
       [{ id: "local", baseURL: "file:///secret" }],
       [{ id: "local", baseURL: "http://user:secret@example.com" }],
       [{ id: "local", baseURL, timeoutMs: 0 }],
@@ -381,6 +383,17 @@ describe("discovery", () => {
     const diagnostics: Diagnostic[] = [];
     expect(await discover(undefined, (value) => diagnostics.push(value))).toEqual([]);
     expect(diagnostics).toEqual([{ code: "invalid-options" }]);
+  });
+
+  it("keeps slash-containing model IDs selectable through OpenCode's public reference parser", async () => {
+    const baseURL = await endpoint((_request, response) =>
+      response.end('{"data":[{"id":"org/coder"}]}'),
+    );
+    const inventories = await discover({ sources: [{ id: "local", baseURL }] }, () => {});
+    const refs = inventories.flatMap((inventory) =>
+      [...inventory.models.keys()].map((id) => Model.Ref.parse(`${inventory.source.id}/${id}`)),
+    );
+    expect(refs).toEqual([{ providerID: "local", id: "org/coder" }]);
   });
 
   it("preserves existing V1 providers on failure and sends only sanitised log data", async () => {

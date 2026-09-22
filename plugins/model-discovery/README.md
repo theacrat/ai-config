@@ -2,7 +2,7 @@
 
 Load an OpenAI-compatible model catalogue at plugin startup. Each configured source becomes an OpenCode provider. Discovery changes the in-memory model registry; it does not write configuration files.
 
-The default export has `server()` for OpenCode V1 1.18.29+ and `setup()` for V2. It targets `@opencode-ai/plugin` 1.18.32 and `@opencode/plugin` 2.0.14. V1 loads no V2 runtime code. Releases before V1 1.18.29 are not supported.
+The default export has `server()` for OpenCode V1 1.18.29+ and `setup()` for V2. It targets `@opencode-ai/plugin` 1.18.32 and `@opencode/plugin` 2.0.14. V1 loads no V2 runtime code.
 
 ## Build
 
@@ -15,22 +15,28 @@ bun run check
 
 This runs TypeScript checks for source and tests, oxlint, oxfmt, Vitest, and a Bun build with declarations in `dist/`. Tests serve local HTTP endpoints and exercise both adapters. Live host verification is separate from these package tests.
 
+To run these checks before committing plugin changes, enable the repository hook from the repository root:
+
+```sh
+git config core.hooksPath plugins/model-discovery/.githooks
+```
+
 ## Configure V2
 
-Use an absolute path to this package directory in your `opencode.jsonc`:
+Use an absolute path to the built `dist` directory in your `opencode.jsonc`:
 
 ```jsonc
 {
   "$schema": "https://opencode.ai/config.json",
   "plugins": [
     {
-      "package": "/absolute/path/ai-config/plugins/model-discovery",
+      "package": "/absolute/path/ai-config/plugins/model-discovery/dist",
       "options": {
         "sources": [
           {
-            "id": "local-models",
-            "baseURL": "http://127.0.0.1:8000/v1",
-            "apiKeyEnv": "LOCAL_MODEL_API_KEY",
+            "id": "cpa",
+            "baseURL": "http://cpa.nb/v1",
+            "apiKeyEnv": "CPA_API_KEY",
           },
         ],
       },
@@ -39,7 +45,7 @@ Use an absolute path to this package directory in your `opencode.jsonc`:
 }
 ```
 
-Set `LOCAL_MODEL_API_KEY` in the environment of the OpenCode server. Omit `apiKeyEnv` for an unauthenticated server. V2 passes this options object through `ctx.options`.
+Set `CPA_API_KEY` to your bearer token in the environment of the OpenCode server. Omit `apiKeyEnv` for an unauthenticated server. V2 passes this options object through `ctx.options`.
 
 ## Configure V1
 
@@ -54,9 +60,9 @@ V1 1.18.29+ supports the dual object entrypoint and a package/options tuple. Poi
       {
         "sources": [
           {
-            "id": "local-models",
-            "baseURL": "http://127.0.0.1:8000/v1",
-            "apiKeyEnv": "LOCAL_MODEL_API_KEY",
+            "id": "cpa",
+            "baseURL": "http://cpa.nb/v1",
+            "apiKeyEnv": "CPA_API_KEY",
           },
         ],
       },
@@ -70,10 +76,23 @@ The tuple's second element is passed directly as the second argument of `server(
 For a host or loader without native options support, use a plain plugin path and set `OPENCODE_MODEL_DISCOVERY` to JSON:
 
 ```sh
-export OPENCODE_MODEL_DISCOVERY='{"sources":[{"id":"local-models","baseURL":"http://127.0.0.1:8000/v1","apiKeyEnv":"LOCAL_MODEL_API_KEY"}]}'
+export OPENCODE_MODEL_DISCOVERY='{"sources":[{"id":"cpa","baseURL":"http://cpa.nb/v1","apiKeyEnv":"CPA_API_KEY"}]}'
 ```
 
 Both entrypoints use that variable only when native options are absent or an empty object. Explicit options replace the environment configuration entirely. `{ "sources": [] }` disables discovery. Invalid options produce a sanitised diagnostic and leave providers unchanged.
+
+### Older V1 releases
+
+Use `dist/legacy.js` for V1 releases before 1.18.29, with the environment configuration above:
+
+```jsonc
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": ["file:///absolute/path/ai-config/plugins/model-discovery/dist/legacy.js"],
+}
+```
+
+The legacy entrypoint is verified on V1 1.2.27. Its `opencode models` command does not initialise plugins; start a normal session to load the discovered catalogue. Earlier V1 releases are not covered.
 
 ## Options
 
@@ -136,7 +155,7 @@ Only `id` is required per model. `name` defaults to `id`. The plugin recognises 
 | Output limit  | `max_output_tokens`, then the source default                         |
 | Tool support  | `tool_call`, then `supports_tools`, then the source default          |
 
-These fields are not guaranteed by the standard OpenAI models endpoint. Numeric strings, null limits, nonpositive limits, duplicate model IDs and malformed entries invalidate that source's whole response. Unknown fields such as `object` and `owned_by` are ignored. Empty catalogues are valid. The IDs `__proto__`, `prototype` and `constructor` are rejected for both providers and models.
+These fields are not guaranteed by the standard OpenAI models endpoint. Numeric strings, null limits, nonpositive limits, duplicate model IDs and malformed entries invalidate that source's whole response. Unknown fields such as `object` and `owned_by` are ignored. Empty catalogues are valid. The IDs `__proto__`, `prototype` and `constructor` are rejected for both providers and models. IDs cannot contain `#` or surrounding whitespace. Provider IDs cannot contain `/`; model IDs can.
 
 The plugin does not infer pricing, reasoning or vision support from names. V1 leaves pricing unspecified. V2 supplies an empty cost list and text-only modalities. Existing manual overrides can supply additional capabilities or costs.
 
@@ -147,6 +166,19 @@ V1 merges discovered models into the provider's configuration, with manual field
 Discovery runs once when the plugin loads, with sources fetched concurrently. There is no polling. Restart the OpenCode server or unload/reload the plugin to fetch a new catalogue. Replaying a V2 provider transform alone does not fetch again.
 
 A timeout, HTTP error, invalid response or missing credential leaves that source's existing provider unchanged. Other sources continue. Diagnostics contain a fixed error code, the zero-based position in `sources`, and an HTTP status where applicable. They never include tokens, URLs, raw exceptions or response bodies. V1 sends diagnostics through the SDK logger; V2 writes structured warnings to the host's stderr. V2 disposes its transform when the plugin unloads.
+
+## Verify installed hosts
+
+After building, run this from the repository root on Linux or macOS:
+
+```sh
+python3 scripts/verify-model-discovery.py \
+  --v1 /path/to/opencode-v1 \
+  --v2 /path/to/opencode-v2 \
+  --legacy /path/to/opencode-1.2.27
+```
+
+The optional `--legacy` check uses the function entrypoint. The script starts authenticated local endpoints, isolates each host's configuration and data, and verifies discovery plus inference. V2 verification also checks manual model overrides. It starts a private server and waits for plugin activation because initial V2 catalogue reads can precede plugin startup. Every server stops when the check finishes.
 
 ## API references
 

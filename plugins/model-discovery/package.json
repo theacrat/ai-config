@@ -11,15 +11,19 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./v1": {
+      "types": "./dist/legacy.d.ts",
+      "import": "./dist/legacy.js"
     }
   },
   "scripts": {
-    "build": "bun build src/index.ts --outdir dist --target bun --packages external --splitting && tsc --emitDeclarationOnly",
+    "build": "rm -rf dist && bun build src/index.ts src/legacy.ts --outdir dist --target bun --packages external --splitting && tsc --emitDeclarationOnly",
     "test": "vitest run",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json",
-    "lint": "oxlint src test",
-    "format": "oxfmt --write src test package.json tsconfig.json tsconfig.test.json README.md",
-    "format:check": "oxfmt --check src test package.json tsconfig.json tsconfig.test.json README.md",
+    "lint": "oxlint src tests",
+    "format": "oxfmt --write src tests package.json tsconfig.json tsconfig.test.json README.md",
+    "format:check": "oxfmt --check src tests package.json tsconfig.json tsconfig.test.json README.md",
     "check": "bun run typecheck && bun run lint && bun run format:check && bun run test && bun run build"
   },
   "dependencies": {
