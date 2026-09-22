@@ -1,0 +1,29 @@
+{
+  "name": "cpa-quotas",
+  "version": "1.0.0",
+  "private": true,
+  "openchamber": {
+    "apiVersion": 1,
+    "engines": { "openchamber": ">=1.24.0" },
+    "contributes": {
+      "panel": {
+        "id": "cpa-quotas",
+        "name": "CPA Quotas",
+        "icon": "donut-chart",
+        "entry": "panel/index.html"
+      },
+      "page": true,
+      "integration": {
+        "name": "CLIProxyAPI",
+        "description": "Reads every account quota from the CLIProxyAPI management API.",
+        "token": {
+          "apiOrigin": "https://crate.thea.pet",
+          "scheme": "bearer"
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "@openchamber/sdk": "^1.24.0"
+  }
+}
