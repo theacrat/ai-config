@@ -2,6 +2,17 @@
 
 Personal skills shared across Codex, Claude Code, OpenCode, Oh My Pi and Cursor.
 
+## OpenChamber extensions
+
+[`extensions/cliproxyapi/`](extensions/cliproxyapi/README.md) contains a standalone
+CLIProxyAPI panel for account quotas, cooldowns and health. Install it through
+OpenChamber's Extensions settings. Its private connection settings stay on the
+device running OpenChamber.
+
+To develop the panel, install Bun 1.4.2 and run `bun install --frozen-lockfile`
+inside `extensions/cliproxyapi`. From the repository root, run
+`git config --local core.hooksPath .githooks` to enable its pre-commit checks.
+
 ## Set up another device
 
 Install Git and Python 3.11 or newer. Sign in to GitHub so you can clone this private repository. macOS and Linux are supported, including WSL on Windows.

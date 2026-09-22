@@ -1,0 +1,43 @@
+name: CLIProxyAPI panel
+
+on:
+  pull_request:
+    paths:
+      - extensions/cliproxyapi/**
+      - .github/workflows/cliproxyapi.yml
+  push:
+    branches: [main]
+    paths:
+      - extensions/cliproxyapi/**
+      - .github/workflows/cliproxyapi.yml
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: extensions/cliproxyapi
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun run lint
+      - run: bun run format:check
+      - run: bun run test
+      - run: |
+          git cat-file -e HEAD:extensions/cliproxyapi/panel/main.js
+          git cat-file -e HEAD:extensions/cliproxyapi/service/main.js
+      - run: bun run build
+      - run: git diff --exit-code -- panel/main.js service/main.js
+      - run: bun run zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: openchamber-cliproxyapi
+          path: extensions/cliproxyapi/dist/openchamber-cliproxyapi.zip
+          if-no-files-found: error
