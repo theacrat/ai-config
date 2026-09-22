@@ -324,6 +324,102 @@
       },
       "license": "licenses/cursor-pstack-MIT.txt",
       "bundle_sha256": "9060cbb1f1c649cb8b2b415bbc8b26b66a21015137b54f0478aaf06d0f6efec6"
+    },
+    {
+      "name": "computer-use",
+      "destination": "skills/computer-use",
+      "source": {
+        "repository": "https://github.com/stablyai/orca.git",
+        "commit": "0b1567a7b1adde0260598426730a38fe99f78852",
+        "path": "skills/computer-use",
+        "sha256": "ab742e530453b5aad077fdb20f2e19c6cb56129c598639c30a31149d41c74bee"
+      },
+      "license": "licenses/stablyai-orca-MIT.txt",
+      "bundle_sha256": "ab742e530453b5aad077fdb20f2e19c6cb56129c598639c30a31149d41c74bee"
+    },
+    {
+      "name": "linear-tickets",
+      "destination": "skills/linear-tickets",
+      "source": {
+        "repository": "https://github.com/stablyai/orca.git",
+        "commit": "0b1567a7b1adde0260598426730a38fe99f78852",
+        "path": "skills/linear-tickets",
+        "sha256": "771c07fbe8be98e5910e6b39fc9a7b5378025276c8cbe789ed88391dd97a6a17"
+      },
+      "license": "licenses/stablyai-orca-MIT.txt",
+      "bundle_sha256": "771c07fbe8be98e5910e6b39fc9a7b5378025276c8cbe789ed88391dd97a6a17"
+    },
+    {
+      "name": "orca-cli",
+      "destination": "skills/orca-cli",
+      "source": {
+        "repository": "https://github.com/stablyai/orca.git",
+        "commit": "0b1567a7b1adde0260598426730a38fe99f78852",
+        "path": "skills/orca-cli",
+        "sha256": "5d7dcb077bed10f97e0ae9f072858f80ca586503d941682c0332fc8249d29a7d"
+      },
+      "license": "licenses/stablyai-orca-MIT.txt",
+      "bundle_sha256": "5d7dcb077bed10f97e0ae9f072858f80ca586503d941682c0332fc8249d29a7d"
+    },
+    {
+      "name": "orca-emulator",
+      "destination": "skills/orca-emulator",
+      "source": {
+        "repository": "https://github.com/stablyai/orca.git",
+        "commit": "0b1567a7b1adde0260598426730a38fe99f78852",
+        "path": "skills/orca-emulator",
+        "sha256": "a5f98f7699723393f630a8cdbbf71b04778b726f5614afd78b9099aefd352fd8"
+      },
+      "license": "licenses/stablyai-orca-MIT.txt",
+      "bundle_sha256": "a5f98f7699723393f630a8cdbbf71b04778b726f5614afd78b9099aefd352fd8"
+    },
+    {
+      "name": "orca-emulator-android",
+      "destination": "skills/orca-emulator-android",
+      "source": {
+        "repository": "https://github.com/stablyai/orca.git",
+        "commit": "0b1567a7b1adde0260598426730a38fe99f78852",
+        "path": "skills/orca-emulator-android",
+        "sha256": "96d8c7a6b9480e3b362334242b98e12a2568ddcc38a6fa841fec3bf38a903b7b"
+      },
+      "license": "licenses/stablyai-orca-MIT.txt",
+      "bundle_sha256": "96d8c7a6b9480e3b362334242b98e12a2568ddcc38a6fa841fec3bf38a903b7b"
+    },
+    {
+      "name": "orca-linear",
+      "destination": "skills/orca-linear",
+      "source": {
+        "repository": "https://github.com/stablyai/orca.git",
+        "commit": "0b1567a7b1adde0260598426730a38fe99f78852",
+        "path": "skills/orca-linear",
+        "sha256": "43a2748df2691ea184858a9ba5763933130a03185328715451cd8d2679e3ea8b"
+      },
+      "license": "licenses/stablyai-orca-MIT.txt",
+      "bundle_sha256": "43a2748df2691ea184858a9ba5763933130a03185328715451cd8d2679e3ea8b"
+    },
+    {
+      "name": "orca-per-workspace-env",
+      "destination": "skills/orca-per-workspace-env",
+      "source": {
+        "repository": "https://github.com/stablyai/orca.git",
+        "commit": "0b1567a7b1adde0260598426730a38fe99f78852",
+        "path": "skills/orca-per-workspace-env",
+        "sha256": "4504a0d6c516020f82368f3db3cb154a2300c652025588558034d7c2f968c6eb"
+      },
+      "license": "licenses/stablyai-orca-MIT.txt",
+      "bundle_sha256": "4504a0d6c516020f82368f3db3cb154a2300c652025588558034d7c2f968c6eb"
+    },
+    {
+      "name": "orchestration",
+      "destination": "skills/orchestration",
+      "source": {
+        "repository": "https://github.com/stablyai/orca.git",
+        "commit": "0b1567a7b1adde0260598426730a38fe99f78852",
+        "path": "skills/orchestration",
+        "sha256": "f5efcfb0015f7656286272aa57ae61a26ca98408313c80c456567c28a40bca75"
+      },
+      "license": "licenses/stablyai-orca-MIT.txt",
+      "bundle_sha256": "f5efcfb0015f7656286272aa57ae61a26ca98408313c80c456567c28a40bca75"
     }
   ]
 }
