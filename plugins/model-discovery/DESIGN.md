@@ -27,7 +27,15 @@ Requests have a timeout and never follow redirects with credentials. Invalid res
 
 ## Verification
 
-Use a local HTTP endpoint to exercise authentication, metadata mapping, malformed responses, timeout, and both plugin entrypoints. Run actual V1 and V2 model listing against an isolated project and configuration. Probe the supplied CPA endpoint separately without saving its token in the repository.
+Use a local HTTP endpoint to exercise authentication, metadata mapping, malformed responses, timeout, and both plugin entrypoints. Run actual V1 and V2 model listing against an isolated project and configuration. Probe the configured endpoint separately without saving its token in the repository.
+
+## Servers without discovery
+
+Sources may provide `models`, an explicit list of model IDs or metadata objects, and set `discovery: false` to skip the catalogue request. With discovery enabled, configured model metadata overrides discovered metadata and configured-only models are retained. Every model is selectable by default. Explicit OpenCode disable settings still win.
+
+A missing catalogue route, an empty catalogue, an authentication failure, and an invalid response have distinct diagnostics. Configured models remain usable when discovery fails. Without configured models, a failed request preserves the existing provider rather than guessing IDs. Missing credentials still prevent source registration. Diagnostics give a fixed, actionable message without including credentials or response bodies.
+
+The installed loader reads a local options file. Provider names, endpoints, and credential paths belong in that file rather than in the loader. Work is split between the shared discovery package and local installation plus real-host verification; neither writes the other's configuration.
 
 ## Work plan
 
