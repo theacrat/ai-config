@@ -284,6 +284,7 @@ def verify(binary, version, plugin, base_url, root):
     (directory / "opencode.json").write_text(json.dumps(config))
     before = Endpoint.discovery_requests
     before_inference = Endpoint.inference_requests
+    before_paths = len(Endpoint.paths)
     if version == "v1":
         catalogue = run(binary, ["models"], directory, env)
         for provider in PROVIDERS:
@@ -347,8 +348,10 @@ def verify(binary, version, plugin, base_url, root):
     assert Endpoint.inference_requests >= before_inference + len(PROVIDERS), (
         "Host did not call the discovered model"
     )
-    assert "/v1/unpublished" in Endpoint.paths, Endpoint.paths
-    assert "/v1/must-not-request" not in Endpoint.paths, Endpoint.paths
+    paths = Endpoint.paths[before_paths:]
+    assert "/v1/models" in paths, paths
+    assert "/v1/unpublished" in paths, paths
+    assert "/v1/must-not-request" not in paths, paths
     print(
         f"PASS {version}: all models enabled; inference works with discovery, unavailable catalogue, and manual models"
     )
