@@ -35,6 +35,7 @@ Run the installer again if you move the checkout. It recreates links for the new
 
 - `plugins/pstack/` pins the complete pstack repository as a Git submodule. Keeping the bundle intact preserves its shared docs and agents.
 - `plugins/1password/` and `plugins/cloudflare/` pin those plugin repositories as submodules. The installer copies each one into `~/.cursor/plugins/local/` and links their skills into the shared skill directories.
+- `plugins/cliproxyapi/` holds a first-party OpenCode plugin and OpenChamber extension for a CLIProxyAPI instance. The installer links the OpenCode plugin into `~/.config/opencode/plugins/`; the OpenChamber extension is added from its folder in Settings → Extensions.
 - `sources/` pins upstream skill repositories as Git submodules. `skills/` holds symlinks into those checkouts. `sources.json` lists which upstream skills to install and where they live in each submodule; commit pins live only in Git. `licenses/` retains upstream licence text.
 - `personal/skills/` holds your editable personal guidance, currently `thea-mode`. Its initial source is recorded in `personal/source.json`.
 - `install.sh` installs this selection and `--check` checks local links, bundle files and native plugin registrations.
@@ -53,7 +54,7 @@ Application settings, model choices, authentication, MCP connections and session
 | --- | --- | --- |
 | Codex | `~/.agents/skills/` | Native `pstack@pstack-local` plugin |
 | Claude Code | `~/.claude/skills/` | Native `pstack@pstack-local` plugin |
-| OpenCode | Shared `~/.agents/skills/` discovery | Complete pstack bundle mounted under `~/.config/opencode/skills/pstack` and agents under `~/.config/opencode/agents/pstack` |
+| OpenCode | Shared `~/.agents/skills/` discovery | Complete pstack bundle mounted under `~/.config/opencode/skills/pstack` and agents under `~/.config/opencode/agents/pstack`; cliproxyapi provider plugin linked into `~/.config/opencode/plugins/` |
 | Oh My Pi | `~/.omp/agent/skills/` | Stable pstack bundle registered as an `extensions` entry in `~/.omp/agent/config.yml` |
 | Cursor | `~/.cursor/skills/` | Local copies at `~/.cursor/plugins/local/pstack`, `1password`, and `cloudflare` |
 

@@ -81,6 +81,10 @@ class Paths:
         return self.xdg_config / "opencode" / "agents"
 
     @property
+    def opencode_plugins(self) -> Path:
+        return self.xdg_config / "opencode" / "plugins"
+
+    @property
     def cursor_plugin(self) -> Path:
         return self.home / ".cursor" / "plugins" / "local" / "pstack"
 
@@ -386,6 +390,21 @@ def extra_cursor_plugins(paths: Paths) -> tuple[tuple[Path, Path], ...]:
     )
 
 
+def opencode_plugin_links(paths: Paths) -> tuple[tuple[Path, Path], ...]:
+    """First-party OpenCode plugins under plugins/<name>/<name>.ts, installed by link."""
+    root = paths.checkout / "plugins"
+    if not root.is_dir():
+        return ()
+    links: list[tuple[Path, Path]] = []
+    for plugin in sorted(root.iterdir()):
+        if not plugin.is_dir():
+            continue
+        source = plugin / f"{plugin.name}.ts"
+        if source.is_file():
+            links.append((source, paths.opencode_plugins / source.name))
+    return tuple(links)
+
+
 def dropped_extra_plugins(
     paths: Paths,
     prior_paths: set[Path],
@@ -689,6 +708,7 @@ def check(paths: Paths) -> int:
         for name in skills
     }
     extra_locals = extra_cursor_plugins(paths)
+    extra_opencode = opencode_plugin_links(paths)
     expected_managed.update(
         {
             str(paths.cursor_plugin),
@@ -697,6 +717,7 @@ def check(paths: Paths) -> int:
         }
     )
     expected_managed.update(str(destination) for _, destination in extra_locals)
+    expected_managed.update(str(destination) for _, destination in extra_opencode)
     for stale in managed_paths(read_json(paths.state_file, {})) - {
         Path(path) for path in expected_managed
     }:
@@ -732,6 +753,11 @@ def check(paths: Paths) -> int:
         paths.opencode_agents / "pstack", stable / "agents"
     ):
         problems.append("OpenCode pstack agents link is missing or incorrect")
+    for source, destination in extra_opencode:
+        if not is_expected_link(destination, source):
+            problems.append(
+                f"OpenCode plugin link is missing or incorrect: {destination}"
+            )
     try:
         omp_entries = load_omp_extensions(omp_config_path(omp_agent_dir(paths.home)))
     except InstallError as exc:
@@ -779,6 +805,9 @@ def install(paths: Paths, replace: bool) -> int:
                 destination / name, source, prior_paths, replace, moves, conflicts
             )
     extra_locals = extra_cursor_plugins(paths)
+    extra_opencode = opencode_plugin_links(paths)
+    for source, destination in extra_opencode:
+        prepare_link(destination, source, prior_paths, replace, moves, conflicts)
     clean_skill_dirs(paths, desired, prior_paths, replace, moves, stale, conflicts)
     for special in (
         paths.cursor_plugin,
@@ -844,6 +873,8 @@ def install(paths: Paths, replace: bool) -> int:
     create_link(paths.opencode_skills / "pstack", stable)
     if (stable / "agents").is_dir():
         create_link(paths.opencode_agents / "pstack", stable / "agents")
+    for source, destination in extra_opencode:
+        create_link(destination, source)
     ensure_omp_extension(paths.home, stable)
     managed = {
         str(destination / name)
@@ -858,6 +889,7 @@ def install(paths: Paths, replace: bool) -> int:
         }
     )
     managed.update(str(destination) for _, destination in extra_locals)
+    managed.update(str(destination) for _, destination in extra_opencode)
     write_json(
         paths.state_file,
         {

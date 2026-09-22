@@ -44,6 +44,9 @@ class InstallerTest(unittest.TestCase):
         )
         (bundle / "skills/shared/SKILL.md").write_text("shared\n")
         (bundle / "agents/example.md").write_text("agent\n")
+        cliproxyapi = self.checkout / "plugins/cliproxyapi"
+        cliproxyapi.mkdir(parents=True)
+        (cliproxyapi / "cliproxyapi.ts").write_text("// plugin\n")
         self.bin = self.temp / "bin"
         self.bin.mkdir()
         (self.bin / "python3").symlink_to(sys.executable)
@@ -321,6 +324,18 @@ elif args[:3] == ["plugin", "uninstall", "pstack@pstack-local"]:
             ).returncode,
             0,
         )
+
+    def test_opencode_plugin_is_linked_and_checked(self) -> None:
+        result = self.execute()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        link = self.home / ".config/opencode/plugins/cliproxyapi.ts"
+        self.assertEqual(
+            link.resolve(),
+            (self.checkout / "plugins/cliproxyapi/cliproxyapi.ts").resolve(),
+        )
+        self.assertEqual(self.execute("--check").returncode, 0)
+        link.unlink()
+        self.assertNotEqual(self.execute("--check").returncode, 0)
 
 
 if __name__ == "__main__":
