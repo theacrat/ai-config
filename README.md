@@ -2,6 +2,13 @@
 
 Personal skills shared across Codex, Claude Code, OpenCode, Oh My Pi and Cursor.
 
+## OpenChamber extensions
+
+[`extensions/cliproxyapi/`](extensions/cliproxyapi/README.md) contains a standalone
+CLIProxyAPI panel for account quotas, cooldowns and health. Install it through
+OpenChamber's Extensions settings. Its private connection settings stay on the
+device running OpenChamber.
+
 ## Set up another device
 
 Install Git and Python 3.11 or newer. Sign in to GitHub so you can clone this private repository. macOS and Linux are supported, including WSL on Windows.

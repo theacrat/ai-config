@@ -1,0 +1,35 @@
+name: CLIProxyAPI panel
+
+on:
+  pull_request:
+    paths:
+      - extensions/cliproxyapi/**
+      - .github/workflows/cliproxyapi.yml
+  push:
+    branches: [main]
+    paths:
+      - extensions/cliproxyapi/**
+      - .github/workflows/cliproxyapi.yml
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: extensions/cliproxyapi
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun run lint
+      - run: bun run format:check
+      - run: bun run test
+      - run: bun run build
+      - run: git diff --exit-code -- panel/main.js service/main.js
+      - run: bun run zip
