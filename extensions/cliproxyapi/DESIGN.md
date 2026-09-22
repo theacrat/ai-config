@@ -46,13 +46,30 @@ or similar integrations are used.
 - [x] Ground the CPA response and OpenChamber extension contract.
 - [x] Compare direct token integration with a host-managed service.
 - [x] Agree on the service-backed snapshot boundary.
-- [ ] Implement the service, parser and panel.
-- [ ] Verify parsing, service authentication and real CPA reads.
+- [x] Implement the service, parser and panel.
+- [x] Verify parsing, service authentication and real CPA reads.
 - [ ] Verify the built panel through the SDK wire contract in a browser.
-- [ ] Review the diff and package built assets for folder/ZIP installation.
+- [x] Review the diff and package built assets for folder/ZIP installation.
 - [ ] Revisit the design if the SDK or observed CPA data contradicts it.
 
 Blocking first steps are contract discovery and credential isolation. One code
 owner keeps the shared snapshot contract consistent. Verification can run
 independently once the package exists. The owner uses an isolated Git worktree;
 review and integration happen in the original worktree.
+
+## Implementation verification
+
+The package uses SDK 1.24.2, checked against npm, and ships its MIT licence and
+Zod's MIT licence. The parser/service suite passes 32 tests. The built CommonJS
+service passed live verification under Node with 4 accounts, none omitted, 2
+account windows and 1 model observation. The live script prints counts only.
+
+Account display names follow label, email, filename, then index. Auth indices are
+opaque bounded identifiers. Model names and additional-limit names are preserved
+as bounded, control-free text. Codex flags, credits and active-limit attribution
+remain visible even without percentage windows. Invalid cooldown entries mark the
+data incomplete rather than implying a known-empty cooldown set.
+
+The synthetic browser fixture speaks the SDK wire protocol and loads the committed
+panel bundle. Browser interaction verification is pending the parent's connected
+browser; this implementation session has no desktop browser or Chromium binary.

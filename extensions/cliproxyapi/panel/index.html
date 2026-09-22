@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CLIProxyAPI quotas</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <h1>CLIProxyAPI</h1>
+          <p>Passive quota observations</p>
+        </div>
+        <button id="refresh" type="button">Refresh</button>
+      </header>
+      <p id="connection" role="status" aria-live="polite">Connecting to OpenChamber…</p>
+      <div class="filters">
+        <label class="search"
+          >Find account<input id="search" type="search" placeholder="Provider or account index"
+        /></label>
+        <label
+          >Provider<select id="provider">
+            <option value="all">All providers</option>
+          </select></label
+        >
+        <label
+          >Health<select id="health">
+            <option value="all">All accounts</option>
+            <option value="attention">Needs attention</option>
+            <option value="disabled">Disabled</option>
+            <option value="unknown">Unknown quota</option>
+          </select></label
+        >
+      </div>
+      <p id="summary" class="muted"></p>
+      <section id="accounts" aria-label="Accounts"></section>
+      <footer>
+        Read-only · Observed during CPA traffic. Refresh reads saved observations; it does not probe
+        providers.
+      </footer>
+    </main>
+    <script src="./main.js"></script>
+  </body>
+</html>

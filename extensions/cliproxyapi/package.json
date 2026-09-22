@@ -1,0 +1,50 @@
+{
+  "name": "openchamber-cliproxyapi",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Passive CLIProxyAPI quota and account health panel",
+  "scripts": {
+    "build": "bun scripts/build.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "oxlint src panel/main.ts service/main.ts scripts tests",
+    "format": "oxfmt src panel/main.ts panel/index.html panel/style.css service/main.ts scripts tests package.json tsconfig.json README.md",
+    "format:check": "bun run format --check",
+    "zip": "bun scripts/zip.ts",
+    "verify:live": "bun scripts/verify-live.ts",
+    "fixture": "bun scripts/fixture-server.ts"
+  },
+  "dependencies": {
+    "@openchamber/sdk": "1.24.2",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "latest",
+    "oxfmt": "latest",
+    "oxlint": "latest",
+    "typescript": "latest",
+    "vitest": "latest"
+  },
+  "openchamber": {
+    "apiVersion": 1,
+    "engines": {
+      "openchamber": ">=1.22.0"
+    },
+    "contributes": {
+      "panel": {
+        "id": "cliproxyapi",
+        "name": "CLIProxyAPI",
+        "icon": "dashboard-3",
+        "entry": "panel/index.html"
+      },
+      "page": true,
+      "attach": false,
+      "service": {
+        "entry": "service/main.js",
+        "runtime": "host",
+        "permissions": {}
+      }
+    }
+  }
+}

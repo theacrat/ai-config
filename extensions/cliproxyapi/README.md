@@ -1,0 +1,162 @@
+# CLIProxyAPI quota panel for OpenChamber
+
+A standalone, read-only panel and full-page view for saved CLIProxyAPI quota
+observations, account health, and cooldowns. Requires OpenChamber 1.22.0 or later
+on desktop or web. VS Code and mobile do not run guest local services.
+
+## Install
+
+1. On the machine running the OpenChamber host, create
+   `~/.config/openchamber/cliproxyapi.json` with your editor:
+
+   ```json
+   {
+     "baseUrl": "http://cpa.nb",
+     "managementKey": "REPLACE_WITH_YOUR_EXISTING_CPA_MANAGEMENT_KEY"
+   }
+   ```
+
+   Use an origin, without a path, query, fragment, or URL credentials. `baseUrl`
+   defaults to `http://cpa.nb` if omitted. The key must already exist in CPA.
+   The extension does not create or change credentials. Keep this file private,
+   outside the extension directory. On Linux and macOS, use
+   `chmod 600 ~/.config/openchamber/cliproxyapi.json`.
+
+2. In OpenChamber, open **Settings → Extensions** and install this folder or
+   `dist/openchamber-cliproxyapi.zip`. Approve the local service when prompted.
+   The committed `panel/main.js` and `service/main.js` are ready to run. No build
+   or dependency installation is needed for folder installation.
+3. Open **CLIProxyAPI** from the rail, or from the Extension pages menu for the
+   full-page view. Use **Refresh** after editing the configuration file.
+
+The service runs on the host machine, which may differ from the browser machine.
+CPA must permit management access from that host. OpenChamber starts the service
+on demand with its own Node-compatible runtime. The installed extension does not
+need Bun or a system Node installation.
+
+The service is necessary because OpenChamber's token integration requires an HTTPS
+origin and CPA may use HTTP. HTTP carries the management key without transport
+encryption. Use a trusted private network or configure an HTTPS CPA origin.
+
+## Reading the panel
+
+- Search by provider or stable auth index. Filter by provider, health, or unknown
+  account quota. Display names use CPA's label, then email, then filename, then
+  provider and index as a fallback. Hover the name for the full index. Display
+  strings are limited to 80 characters with control characters removed.
+- Usage is **percent used**. Zero is a real measurement. Missing or invalid
+  measurements display as unknown. Passive Codex primary, secondary,
+  additional, and code-review windows are decoded, along with observed
+  allowed/limit-reached flags, active-limit attribution, and credits. Other providers
+  remain unknown even if CPA has other signal formats.
+- Account observations and model observations are separate. Expand **Model
+  observations** to inspect the latter. Model names are preserved, bounded, and
+  rendered as plain text.
+- Observation times come from CPA's `quota.observed_at`. Relative resets are
+  anchored to that timestamp, never to the most recent refresh. Observations older
+  than 15 minutes display as stale. A passed reset time does not imply replenished
+  quota; another observation is needed.
+- Health, disablement, unavailability and cooldowns describe different CPA states.
+  An empty known cooldown set does not prove an account is available. A null or
+  missing cooldown set displays as unknown, including remote scheduling state.
+- The panel polls once per minute while the document is visible and fetches when
+  it becomes visible. Refresh failures preserve the previous snapshot with a stale
+  label. Service crashes and missing service approval require manual Refresh.
+
+There are no inference requests, active quota probes, quota-plugin calls, routing
+toggles, writes to CPA, or destructive usage-queue reads. Refresh only reads
+`GET /v0/management/auth-files`.
+
+## Service contract
+
+`service/main.js` is bundled CommonJS for the host's actual Node runtime. The
+package intentionally has no `type: "module"`. The panel is a classic IIFE.
+
+The service binds `127.0.0.1` using `OPENCHAMBER_SERVICE_PORT`. Every request,
+including `GET /health`, requires
+`Authorization: Bearer <OPENCHAMBER_SERVICE_TOKEN>`. The host owns this token;
+the iframe never receives it. Only authenticated `GET /snapshot` reads CPA.
+Other methods and paths, including query-bearing paths, are rejected.
+
+The CPA key comes only from the config file, read on each uncached snapshot
+request. OpenChamber filters the service environment, so inherited environment
+keys are not a supported configuration mechanism. The service makes one fixed
+management request with an eight-second deadline, rejects redirects, and bounds
+the upstream body to 4 MiB. It coalesces concurrent reads and caches successful
+snapshots for three seconds. Responses contain only projected fields and fixed
+error codes, never raw CPA entries or server error bodies.
+
+The public snapshot has at most 300 accounts and 24 model observations,
+cooldowns, and quota windows per account. Output stays below 240,000 bytes.
+Omitted accounts and model/cooldown details are marked. Invalid cooldown entries
+are marked incomplete, never treated as a known-empty set. Auth indices are opaque,
+nonempty identifiers limited to 256 characters. Invalid or duplicate indices are
+omitted.
+
+## Build and checks
+
+Development requires Bun, Node for runtime verification, and `zip` for packaging.
+The SDK version was checked against the npm registry and pinned to **1.24.2**.
+
+```sh
+cd extensions/cliproxyapi
+bun install --frozen-lockfile
+bun run test
+bun run typecheck
+bun run lint
+bun run format:check
+bun run build
+bun run zip
+```
+
+The ZIP includes the manifest, README, HTML, CSS, bundled JavaScript, and bundled
+dependency MIT licences under `licenses/`.
+It excludes source files, dependencies, configuration, and credentials.
+
+### Live verification
+
+After configuring the host file, run:
+
+```sh
+bun run verify:live
+```
+
+This starts the **built service under Node**, verifies authenticated health and
+unauthenticated refusals, then reads its sanitised snapshot. It prints only counts,
+and fixed failure codes. It never prints keys, account names,
+indices, raw auth entries, or error bodies. It does not alter the configuration.
+
+### Browser fixture
+
+```sh
+bun run build
+bun run fixture
+```
+
+Open `http://127.0.0.1:4318`. An optional port can be passed as
+`bun run fixture 4319`. The synthetic parent page hosts the real built panel in
+an opaque-origin sandboxed iframe. It speaks the SDK's actual `hello`, `ready`,
+`service-request`, and `result` messages, and validates host messages with the SDK
+schema. It never reads configuration or contacts CPA.
+
+Check search and filters, expand model observations, switch themes, and toggle
+between 360px and 760px widths. Choose a response mode and press **Refresh** inside
+the panel to test stale-on-error, setup, disconnected, and empty states. The parent
+shows request counts for polling checks. Hide the browser tab for over a minute
+and confirm no request occurs until it becomes visible. The fixture has three
+synthetic accounts, one stale measured quota and one model cooldown.
+
+## Source references
+
+CPA behavior was derived only from its source:
+
+- `internal/api/handlers/management/auth_files.go`: auth entries, passive quota
+  projection, `observed_at`, `signals`, and `model_quotas`.
+- `internal/runtime/executor/helps/codex_quota.go`: Codex header names, window
+  minutes, used percentages, and reset units.
+- `sdk/cliproxy/auth/types.go`, `status.go`, and `cooldown_view.go`: stable indices,
+  health states, cooldown scopes, reasons and absolute retry times.
+
+Host behavior follows the official OpenChamber SDK `API.md`, `GUEST_SERVICES.md`,
+and `src` protocol and theme types. No other CPA client or host provider
+implementation informed this package.
