@@ -40,15 +40,22 @@ encryption. Use a trusted private network or configure an HTTPS CPA origin.
 
 ## Reading the panel
 
+Usage and reset times appear first. Expand **Search and display options** for
+filters and timezone selection, **Manage account** for actions, and **Account
+details** for quota flags, saved readings, and model observations. Account errors
+and active cooldowns stay visible. Action results appear below the controls.
+
 - Search by account name, provider, or stable auth index. Filter by provider, health, or unknown
   account quota. Display names use CPA's label, then email, then filename, then
   provider and index as a fallback. Hover the name for the full index. Display
   strings are limited to 80 characters with control characters removed.
-- Usage is **percent used**. Zero is a real measurement. Missing or invalid
+- Bars show **percent remaining** and empty as quota is consumed. They use the
+  host theme's success colour at 70% or above, warning from 30%, and error below
+  30%, matching CPA's thresholds. Zero is a real measurement. Missing or invalid
   measurements display as unknown. Live and passive Codex primary, secondary,
   additional, and code-review windows are decoded, along with observed
   allowed/limit-reached flags, active-limit attribution, and credits. Other providers
-  retain their saved readings. Antigravity groups show percent used, computed from
+  retain their saved readings. Antigravity groups show percent remaining, computed from
   remaining fractions, with group descriptions and reset times.
 - Account observations and model observations are separate. Expand **Model
   observations** to inspect the latter. Model names are preserved, bounded, and

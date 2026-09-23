@@ -83,10 +83,8 @@ button:disabled {
   outline-offset: 2px;
 }
 #connection {
-  margin: 14px 0;
-  padding: 9px 10px;
-  border-radius: var(--oc-radius, 6px);
-  background: var(--oc-muted-surface, #292e36);
+  margin: 12px 0;
+  color: var(--oc-muted, #aab1bd);
   font-size: 12px;
   overflow-wrap: anywhere;
 }
@@ -127,7 +125,7 @@ select {
   margin: 14px 0 4px;
 }
 .account {
-  padding: 15px 0;
+  padding: 20px 0;
   border-bottom: 1px solid var(--oc-border, #505765);
 }
 .account-heading {
@@ -163,10 +161,12 @@ select {
   overflow-wrap: anywhere;
 }
 .window-heading strong {
+  font-size: 15px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 progress {
+  --quota-colour: var(--oc-success, #6baf83);
   display: block;
   width: 100%;
   height: 5px;
@@ -174,21 +174,24 @@ progress {
   border: 0;
   border-radius: 3px;
   background: var(--oc-muted-surface, #292e36);
-  accent-color: var(--oc-primary, #83b0e6);
+  accent-color: var(--quota-colour);
 }
 progress::-webkit-progress-bar {
   background: var(--oc-muted-surface, #292e36);
   border-radius: 3px;
 }
 progress::-webkit-progress-value {
-  background: var(--oc-primary, #83b0e6);
+  background: var(--quota-colour);
   border-radius: 3px;
 }
-progress.high::-webkit-progress-value {
-  background: var(--oc-warning, #d6a349);
+progress::-moz-progress-bar {
+  background: var(--quota-colour);
 }
-progress.high {
-  accent-color: var(--oc-warning, #d6a349);
+progress.low {
+  --quota-colour: var(--oc-warning, #d6a349);
+}
+progress.critical {
+  --quota-colour: var(--oc-error, #df7070);
 }
 .unknown {
   margin-top: 10px;
@@ -257,5 +260,21 @@ footer {
   flex-basis: 100%;
 }
 .action-result {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-left: 2px solid var(--oc-border, #505765);
+  background: var(--oc-muted-surface, #292e36);
+  font-size: 12px;
+  line-height: 1.6;
   overflow-wrap: anywhere;
+}
+.bank-balance {
+  margin-top: 12px;
+  font-size: 12px;
+}
+.view-options {
+  margin: 0;
+}
+.view-options[open] > summary {
+  margin-bottom: 12px;
 }
