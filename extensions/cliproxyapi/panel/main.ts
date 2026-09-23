@@ -32,9 +32,7 @@ let managementUrl: string | null = null;
 const search = required("#search", HTMLInputElement);
 const provider = required("#provider", HTMLSelectElement);
 const health = required("#health", HTMLSelectElement);
-const timeZone = required("#time-zone", HTMLSelectElement);
 const localTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-timeZone.replaceChildren(new Option(`Local (${localTimeZone})`, "local"), new Option("UTC", "utc"));
 const connection = required("#connection", HTMLParagraphElement);
 const summary = required("#summary", HTMLParagraphElement);
 const accounts = required("#accounts", HTMLElement);
@@ -44,7 +42,6 @@ let busy = false;
 let ready = false;
 let failure = "";
 let pausePolling = false;
-const expanded = new Set<string>();
 const pendingActions = new Set<string>();
 const actionMessages = new Map<string, string>();
 let confirming: string | null = null;
@@ -71,19 +68,8 @@ function age(time: number): string {
 function timeLabel(time: number): string {
   return formatTime({
     timestamp: time,
-    timeZone: timeZone.value === "utc" ? "UTC" : localTimeZone,
+    timeZone: localTimeZone,
   });
-}
-function disclosure(label: string, key: string): HTMLDetailsElement {
-  const details = element("details");
-  details.open = expanded.has(key);
-  details.append(element("summary", label));
-  details.addEventListener("toggle", () => {
-    if (!details.isConnected) return;
-    if (details.open) expanded.add(key);
-    else expanded.delete(key);
-  });
-  return details;
 }
 function observationNode(
   observation: Observation,
@@ -102,8 +88,7 @@ function observationNode(
         "observation-time",
       ),
     );
-  const metadata = element("details");
-  metadata.append(element("summary", "Quota details"));
+  const metadata = element("div", "", "quota-details");
   if (observation.activeLimit)
     metadata.append(element("p", `Active limit: ${observation.activeLimit}`, "observation-time"));
   for (const limit of observation.limits) {
@@ -135,7 +120,11 @@ function observationNode(
         "unknown",
       ),
     );
-  for (const window of observation.windows) {
+  function priority(window: Observation["windows"][number]): number {
+    if (window.limitId === "main") return 0;
+    return `${window.limitId} ${window.label}`.toLowerCase().includes("gpt-reserve") ? 1 : 2;
+  }
+  for (const window of [...observation.windows].sort((a, b) => priority(a) - priority(b))) {
     const remaining = window.usedPercent === null ? null : 100 - window.usedPercent;
     const row = element("div", "", "window");
     const title = element("div", "", "window-heading");
@@ -181,7 +170,7 @@ function observationNode(
     );
     node.append(row);
   }
-  if (metadata.childElementCount > 1) (diagnostics ?? node).append(metadata);
+  if (metadata.childElementCount) (diagnostics ?? node).append(metadata);
   return node;
 }
 function needsAttention(account: Account): boolean {
@@ -197,17 +186,19 @@ function accountNode(account: Account): HTMLElement {
   const heading = element("div", "", "account-heading");
   const name = element("h2", account.name);
   name.title = `Auth index: ${account.id}`;
+  const identity = element("div", "", "account-identity");
+  identity.append(element("p", account.provider, "account-provider"), name);
   const badges = element("div", "", "badges");
-  badges.append(element("span", account.provider, "badge"));
   if (account.health !== "active" && account.health !== "disabled")
     badges.append(element("span", account.health, "badge warning"));
   if (account.disabled || account.health === "disabled")
     badges.append(element("span", "Disabled", "badge warning"));
   if (account.unavailable) badges.append(element("span", "Unavailable", "badge warning"));
-  heading.append(name, badges);
+  identity.append(badges);
+  heading.append(identity);
   article.append(heading);
   const live = account.live;
-  const diagnostics = disclosure("Account details", `details:${account.id}`);
+  const diagnostics = element("div", "", "account-details");
   if (live && live.status !== "unsupported") {
     article.append(
       element(
@@ -225,33 +216,29 @@ function accountNode(account: Account): HTMLElement {
         diagnostics,
       ),
     );
-    if (live.observation) {
-      const saved = element("details");
-      saved.append(
-        element("summary", "Saved CPA observation"),
-        observationNode(account.observation),
-      );
-      diagnostics.append(saved);
-    }
   } else article.append(observationNode(account.observation));
+  const bankSection = element("section", "", "bank-section");
+  bankSection.setAttribute("aria-label", "Banked resets");
   if (live?.bank) {
     const bank = live.bank;
-    diagnostics.append(
-      element("p", `Applicable banked resets: ${bank.applicable ?? "unknown"}`, "observation-time"),
+    bankSection.append(
+      element("h3", `Banked resets: ${bank.available ?? "unknown"} available`),
+      element("p", `${bank.applicable ?? "unknown"} applicable now`, "observation-time"),
     );
-    article.append(
-      element("p", `Banked resets: ${bank.available ?? "unknown"} available`, "bank-balance"),
-    );
-    if (bank.expiries[0])
-      diagnostics.append(
-        element("p", `Next banked reset expiry · ${timeLabel(bank.expiries[0])}`, "window-time"),
-      );
-    if (bank.error) article.append(element("p", bank.error, "error"));
+    for (const expiry of bank.expiries)
+      bankSection.append(element("p", `Expires ${timeLabel(expiry)}`, "window-time"));
+    if (bank.error) bankSection.append(element("p", bank.error, "error"));
   }
   const controls = element("div", "", "account-actions");
-  function button(label: string, action: Action, enabled: boolean) {
-    const node = element("button", label);
+  function iconButton(symbol: string, label: string): HTMLButtonElement {
+    const node = element("button", symbol, "icon-button");
     node.type = "button";
+    node.title = label;
+    node.setAttribute("aria-label", label);
+    return node;
+  }
+  function button(symbol: string, label: string, action: Action, enabled: boolean) {
+    const node = iconButton(symbol, label);
     node.disabled = pendingActions.has(account.id) || !enabled;
     node.addEventListener("click", () => {
       void runAction(action);
@@ -259,18 +246,8 @@ function accountNode(account: Account): HTMLElement {
     controls.append(node);
   }
   if (account.actions) {
-    button(
-      account.disabled ? "Enable" : "Disable",
-      { kind: "set-disabled", accountId: account.id, disabled: !account.disabled },
-      account.actions.status && account.disabled !== null,
-    );
-    button(
-      "Refresh credentials",
-      { kind: "refresh-auth", accountId: account.id },
-      account.actions.refreshAuth,
-    );
     if (account.provider === "codex") {
-      const reset = element("button", "Use banked reset");
+      const reset = iconButton("↶", "Use banked reset");
       reset.dataset.resetAccount = account.id;
       reset.type = "button";
       reset.disabled = pendingActions.has(account.id) || !account.actions.bankReset;
@@ -281,10 +258,20 @@ function accountNode(account: Account): HTMLElement {
       });
       controls.append(reset);
     }
+    button(
+      "⟳",
+      "Refresh credentials",
+      { kind: "refresh-auth", accountId: account.id },
+      account.actions.refreshAuth,
+    );
+    button(
+      "⏻",
+      account.disabled ? "Enable" : "Disable",
+      { kind: "set-disabled", accountId: account.id, disabled: !account.disabled },
+      account.actions.status && account.disabled !== null,
+    );
   }
-  const manage = disclosure("Manage account", `manage:${account.id}`);
-  manage.append(controls);
-  article.append(manage);
+  heading.append(controls);
   if (confirming === account.id) {
     const confirmation = element("section", "", "reset-confirmation");
     confirmation.setAttribute("role", "group");
@@ -295,6 +282,26 @@ function accountNode(account: Account): HTMLElement {
         `Consume one banked reset for ${account.name}? This spends an available reset credit.`,
       ),
     );
+    const primary = live?.observation?.windows.find(
+      (window) => window.limitId === "main" && window.label === "Primary",
+    );
+    if (live?.status !== "fresh" || primary?.usedPercent == null) {
+      confirmation.append(
+        element(
+          "p",
+          "Primary quota is unknown or stale. Refresh before spending a reset.",
+          "warning",
+        ),
+      );
+    } else if (100 - primary.usedPercent >= 30) {
+      confirmation.append(
+        element(
+          "p",
+          `Primary quota still has ${Math.round(100 - primary.usedPercent)}% remaining. A reset may be unnecessary.`,
+          "warning",
+        ),
+      );
+    }
     const cancel = element("button", "Cancel");
     cancel.type = "button";
     cancel.id = "reset-cancel";
@@ -313,9 +320,9 @@ function accountNode(account: Account): HTMLElement {
       }
     });
     confirmation.append(cancel, confirm);
-    manage.open = true;
-    manage.append(confirmation);
+    bankSection.append(confirmation);
   }
+  if (bankSection.childElementCount) article.append(bankSection);
   if (pendingActions.has(account.id) || actionMessages.has(account.id)) {
     const result = element(
       "p",
@@ -342,30 +349,11 @@ function accountNode(account: Account): HTMLElement {
   }
   if (account.retryAt !== null)
     diagnostics.append(element("p", `CPA retry time · ${timeLabel(account.retryAt)}`, "cooldown"));
-  if (account.models.length) {
-    const details = element("details");
-    details.open = expanded.has(account.id);
-    details.append(element("summary", `Model observations (${account.models.length})`));
-    details.addEventListener("toggle", () => {
-      if (details.open) expanded.add(account.id);
-      else expanded.delete(account.id);
-    });
-    for (const model of account.models) {
-      const row = element("div", "", "model");
-      row.append(element("h3", model.name), observationNode(model.observation));
-      details.append(row);
-    }
-    diagnostics.append(details);
-  }
   if (account.detailsOmitted)
     diagnostics.append(
-      element(
-        "p",
-        "Some model or cooldown details omitted (invalid data or display limit).",
-        "unknown",
-      ),
+      element("p", "Some account details omitted (invalid data or display limit).", "unknown"),
     );
-  if (diagnostics.childElementCount > 1) article.append(diagnostics);
+  if (diagnostics.childElementCount) article.append(diagnostics);
   return article;
 }
 function render(): void {
@@ -383,10 +371,6 @@ function render(): void {
     return;
   }
   const query = search.value.toLowerCase().trim();
-  required("#view-options-label", HTMLElement).textContent =
-    query || provider.value !== "all" || health.value !== "all"
-      ? "Search and display options (filters active)"
-      : "Search and display options";
   const filtered = snapshot.accounts.filter(
     (account) =>
       (!query ||
@@ -529,7 +513,6 @@ managementButton.addEventListener("click", () => {
 search.addEventListener("input", render);
 provider.addEventListener("change", render);
 health.addEventListener("change", render);
-timeZone.addEventListener("change", render);
 host.onReady((context) => {
   applyHostReady(context, document.documentElement);
   if (!ready) {

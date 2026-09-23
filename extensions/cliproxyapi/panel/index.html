@@ -16,33 +16,29 @@
         <button id="management" type="button" disabled>Open management</button>
       </header>
       <p id="connection" role="status" aria-live="polite">Connecting to OpenChamber…</p>
-      <details class="view-options">
-        <summary id="view-options-label">Search and display options</summary>
-        <div class="filters">
-          <label class="search"
-            >Find account<input id="search" type="search" placeholder="Provider or account index"
-          /></label>
-          <label
-            >Provider<select id="provider">
-              <option value="all">All providers</option>
-            </select></label
-          >
-          <label
-            >Health<select id="health">
-              <option value="all">All accounts</option>
-              <option value="attention">Needs attention</option>
-              <option value="disabled">Disabled</option>
-              <option value="unknown">Unknown quota</option>
-            </select></label
-          >
-        </div>
-        <label class="time-zone">Time zone<select id="time-zone"></select></label>
-      </details>
+      <div class="filters">
+        <label class="search"
+          >Find account<input id="search" type="search" placeholder="Provider or account index"
+        /></label>
+        <label
+          >Provider<select id="provider">
+            <option value="all">All providers</option>
+          </select></label
+        >
+        <label
+          >Health<select id="health">
+            <option value="all">All accounts</option>
+            <option value="attention">Needs attention</option>
+            <option value="disabled">Disabled</option>
+            <option value="unknown">Unknown quota</option>
+          </select></label
+        >
+      </div>
       <p id="summary" class="muted"></p>
       <section id="accounts" aria-label="Accounts"></section>
       <footer>
-        Refresh queries live Codex and Antigravity quotas. Saved CPA and model observations retain
-        their original timestamps. Banked resets require confirmation.
+        Refresh queries live Codex and Antigravity quotas. Times use this device's timezone. Banked
+        resets require confirmation.
       </footer>
     </main>
     <script src="./main.js"></script>

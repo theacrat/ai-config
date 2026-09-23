@@ -107,13 +107,6 @@ button:disabled {
 .filters .search {
   flex-basis: 100%;
 }
-.time-zone {
-  display: grid;
-  gap: 4px;
-  margin-top: 8px;
-  font-size: 12px;
-  color: var(--oc-muted, #aab1bd);
-}
 input,
 select {
   width: 100%;
@@ -198,19 +191,6 @@ progress.critical {
   font-size: 12px;
   color: var(--oc-muted, #aab1bd);
 }
-details {
-  margin-top: 12px;
-  font-size: 12px;
-}
-summary {
-  cursor: pointer;
-  color: var(--oc-primary-text, #91beef);
-  padding: 3px 0;
-}
-.model {
-  padding-left: 10px;
-  border-left: 2px solid var(--oc-border, #505765);
-}
 .cooldown {
   margin-top: 7px;
   font-size: 12px;
@@ -238,7 +218,6 @@ footer {
     padding: 10px;
   }
   .account-heading {
-    flex-direction: column;
     gap: 4px;
   }
   .badges {
@@ -268,13 +247,45 @@ footer {
   line-height: 1.6;
   overflow-wrap: anywhere;
 }
-.bank-balance {
-  margin-top: 12px;
-  font-size: 12px;
+.account-identity {
+  min-width: 0;
 }
-.view-options {
+.account-provider {
+  font-size: 16px;
+  font-weight: 650;
+  text-transform: capitalize;
+  margin-bottom: 4px;
+}
+.account-identity h2 {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--oc-muted, #aab1bd);
+}
+.account-identity .badges {
+  justify-content: start;
+  margin-top: 6px;
+}
+.account-heading .account-actions {
+  flex-shrink: 0;
+  margin-top: 0;
+  flex-wrap: nowrap;
+  gap: 4px;
+}
+.icon-button {
+  width: 32px;
+  padding: 3px;
+  font-size: 20px;
+  line-height: 1;
+}
+.bank-section {
+  margin-top: 14px;
+  padding: 10px 12px;
+  background: var(--oc-muted-surface, #292e36);
+  border-radius: var(--oc-radius, 6px);
+}
+.bank-section h3 {
   margin: 0;
 }
-.view-options[open] > summary {
-  margin-bottom: 12px;
+.bank-section .window-time {
+  margin-top: 6px;
 }

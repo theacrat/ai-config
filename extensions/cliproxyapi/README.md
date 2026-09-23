@@ -40,10 +40,11 @@ encryption. Use a trusted private network or configure an HTTPS CPA origin.
 
 ## Reading the panel
 
-Usage and reset times appear first. Expand **Search and display options** for
-filters and timezone selection, **Manage account** for actions, and **Account
-details** for quota flags, saved readings, and model observations. Account errors
-and active cooldowns stay visible. Action results appear below the controls.
+Usage and reset times appear first, with the main quota before GPT reserve.
+Filters, quota flags, and account diagnostics stay visible without collapsible
+sections. Provider names lead each account. The top-right
+buttons are reset, refresh credentials, and enable or disable, with hover labels.
+Account errors and active cooldowns stay visible.
 
 - Search by account name, provider, or stable auth index. Filter by provider, health, or unknown
   account quota. Display names use CPA's label, then email, then filename, then
@@ -57,18 +58,14 @@ and active cooldowns stay visible. Action results appear below the controls.
   allowed/limit-reached flags, active-limit attribution, and credits. Other providers
   retain their saved readings. Antigravity groups show percent remaining, computed from
   remaining fractions, with group descriptions and reset times.
-- Account observations and model observations are separate. Expand **Model
-  observations** to inspect the latter. Model names are preserved, bounded, and
-  rendered as plain text.
 - Saved observation times come from CPA's `quota.observed_at`. Relative resets are
   anchored to that timestamp, never to the most recent refresh. Observations older
   than 15 minutes display as stale. A passed reset time does not imply replenished
   quota; another observation is needed.
 - Live readings have their own response timestamp and do not change CPA's saved
   observation time. Failed reads retain previous measurements with an explicit
-  stale/error label. Expand **Saved CPA observation** to compare the two sources.
-- Reset and retry times include their UTC offset. The Time zone selector switches
-  between the browser's local timezone and UTC without changing CPA's timestamps.
+  stale/error label. The panel does not show saved or model observation sections.
+- Reset and retry times use the device's timezone and include their UTC offset.
 - Health, disablement, unavailability and cooldowns describe different CPA states.
   An empty known cooldown set does not prove an account is available. A null or
   missing cooldown set displays as unknown, including remote scheduling state.
@@ -85,7 +82,9 @@ and active cooldowns stay visible. Action results appear below the controls.
   asks CPA to refresh that account's credentials. Raw credentials stay server-side.
 - **Use banked reset** appears for Codex and is enabled when available credits are
   greater than zero, even if the applicable count is zero. The panel shows the
-  available count and next expiry. Confirm in the panel to consume one reset.
+  available and applicable counts and expiry times together. The reset icon opens
+  confirmation in that section. A warning appears when primary quota has at least
+  30% remaining, or when its reading is stale or unknown. Confirm to consume a reset.
   This calls the provider's credit-consumption endpoint, not CPA's local cooldown reset.
 - Mutation results remain on the account. A successful consumption followed by a
   failed quota read is reported as consumed. An uncertain transport outcome is
