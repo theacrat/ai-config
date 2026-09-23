@@ -112,6 +112,11 @@ type Options = {
           context?: number;
           output?: number;
           tools?: boolean;
+          reasoning?: boolean;
+          reasoning_options?: Array<{
+            type: "effort";
+            values: string[];
+          }>;
         }
     >;
     timeoutMs?: number;
@@ -184,7 +189,11 @@ When discovery is enabled, the endpoint must return a JSON object with a `data` 
       "name": "Coder",
       "context_length": 65536,
       "max_output_tokens": 8192,
-      "supports_tools": true
+      "supports_tools": true,
+      "reasoning": true,
+      "reasoning_options": [
+        { "type": "effort", "values": ["low", "medium", "high"] }
+      ]
     },
     { "id": "another-model", "object": "model", "owned_by": "local" }
   ]
@@ -198,12 +207,13 @@ Only `id` is required per model. `name` defaults to `id`. The plugin recognises 
 | Context limit | `context_length`, then `max_context_length`, then the source default |
 | Output limit  | `max_output_tokens`, then the source default                         |
 | Tool support  | `tool_call`, then `supports_tools`, then the source default          |
+| Thinking      | `reasoning_options`, or `supported_reasoning_levels[].effort`       |
 
 These fields are not guaranteed by the standard OpenAI models endpoint. Numeric strings, null limits, nonpositive limits, duplicate model IDs and malformed entries invalidate that source's whole response. Unknown fields such as `object` and `owned_by` are ignored. Empty catalogues are valid. The IDs `__proto__`, `prototype` and `constructor` are rejected for both providers and models. IDs cannot contain `#` or surrounding whitespace. Provider IDs cannot contain `/`; model IDs can.
 
-The plugin does not infer pricing, reasoning or vision support from names. V1 leaves pricing unspecified. V2 supplies an empty cost list and text-only modalities. Existing manual overrides can supply additional capabilities or costs.
+The plugin does not infer pricing, reasoning or vision support from names. When the endpoint supplies effort values, V1 exposes `reasoning`, `reasoning_options`, and explicit variants; V2 exposes variants with `reasoningEffort` settings. V1 leaves pricing unspecified. V2 supplies an empty cost list and text-only modalities. Existing manual overrides can supply additional capabilities or costs.
 
-V1 merges discovered models into the provider's configuration, with manual fields and nested limits taking precedence. V2 adds source definitions through `ctx.provider.transform`. Existing source models with the same ID take precedence as complete definitions, and OpenCode applies its configured model overrides when it materialises models. Both adapters preserve unrelated providers, manual-only models, provider settings and activation choices. Existing provider settings override the source's base URL and API key for inference; discovery itself always uses the source options.
+V1 merges discovered models into the provider's configuration, with manual fields and nested limits taking precedence. V2 adds source definitions through `ctx.provider.transform`. Existing source models with the same ID retain their fields while discovered variants are merged by ID, with existing variants taking precedence, and OpenCode applies its configured model overrides when it materialises models. Both adapters preserve unrelated providers, manual-only models, provider settings and activation choices. Existing provider settings override the source's base URL and API key for inference; discovery itself always uses the source options.
 
 ## Refresh and failures
 

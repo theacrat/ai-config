@@ -4,6 +4,15 @@ import type { ProviderEditor } from "@opencode/plugin/promise/provider";
 import { diagnosticMessages, discover } from "./discovery";
 import type { Inventory } from "./discovery";
 
+function mergeVariants(
+  discovered: Model.Info["variants"],
+  existing: Model.Info["variants"],
+): Model.Info["variants"] {
+  const variants = new Map(discovered.map((variant) => [variant.id, variant]));
+  for (const variant of existing) variants.set(variant.id, variant);
+  return [...variants.values()];
+}
+
 export function applyProviders(editor: ProviderEditor, inventories: readonly Inventory[]): void {
   for (const { source, apiKey, models } of inventories) {
     const id = Provider.ID.make(source.id);
@@ -11,10 +20,20 @@ export function applyProviders(editor: ProviderEditor, inventories: readonly Inv
     const merged = new Map<string, Model.Info>();
     for (const model of models.values()) {
       const initial = Model.Info.default(id, Model.ID.make(model.id));
+      const variants =
+        model.reasoningOptions?.flatMap((option) =>
+          option.type === "effort"
+            ? option.values.map((value) => ({
+                id: Model.VariantID.make(value),
+                settings: { reasoningEffort: value },
+              }))
+            : [],
+        ) ?? [];
       merged.set(model.id, {
         ...initial,
         enabled: true,
         name: model.name,
+        variants,
         capabilities: {
           input: ["text"],
           output: ["text"],
@@ -26,7 +45,15 @@ export function applyProviders(editor: ProviderEditor, inventories: readonly Inv
         },
       });
     }
-    for (const [key, model] of existing?.models ?? []) merged.set(key, model);
+    for (const [key, model] of existing?.models ?? []) {
+      const discovered = merged.get(key);
+      merged.set(
+        key,
+        discovered
+          ? { ...discovered, ...model, variants: mergeVariants(discovered.variants, model.variants) }
+          : model,
+      );
+    }
     const settings = {
       baseURL: source.baseURL,
       ...(apiKey ? { apiKey } : {}),

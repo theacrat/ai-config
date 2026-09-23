@@ -30,6 +30,10 @@ const configuredModel = z
     context: positive.optional(),
     output: positive.optional(),
     tools: z.boolean().optional(),
+    reasoning: z.boolean().optional(),
+    reasoning_options: z
+      .array(z.object({ type: z.literal("effort"), values: z.array(identifier) }).strict())
+      .optional(),
   })
   .strict();
 const source = z
@@ -70,6 +74,13 @@ const model = z.object({
   max_output_tokens: positive.optional(),
   tool_call: z.boolean().optional(),
   supports_tools: z.boolean().optional(),
+  reasoning: z.boolean().optional(),
+  reasoning_options: z
+    .array(z.object({ type: z.literal("effort"), values: z.array(identifier) }).strict())
+    .optional(),
+  supported_reasoning_levels: z
+    .array(z.object({ effort: identifier, description: z.string().optional() }).strict())
+    .optional(),
 });
 const responseSchema = z
   .object({ data: z.array(model) })
@@ -80,6 +91,8 @@ export type DiscoveredModel = {
   context?: number;
   output?: number;
   tools?: boolean;
+  reasoning?: boolean;
+  reasoningOptions?: ReadonlyArray<{ type: "effort"; values: ReadonlyArray<string> }>;
 };
 export type Inventory = {
   source: Source;
@@ -141,7 +154,17 @@ export async function discover(input: unknown, report: Reporter): Promise<Invent
         return;
       }
       const configured = new Map<string, DiscoveredModel>(
-        source.models.map((item) => [item.id, { ...item, name: item.name ?? item.id }]),
+        source.models.map((item) => {
+          const { reasoning_options, ...metadata } = item;
+          return [
+            item.id,
+            {
+              ...metadata,
+              name: item.name ?? item.id,
+              ...(reasoning_options === undefined ? {} : { reasoningOptions: reasoning_options }),
+            },
+          ];
+        }),
       );
       const fallback = { source, apiKey, models: configured } satisfies Inventory;
       if (!source.discovery) return fallback;
@@ -180,12 +203,24 @@ export async function discover(input: unknown, report: Reporter): Promise<Invent
         }
         const models = new Map<string, DiscoveredModel>();
         for (const item of parsed.data.data) {
+          const reasoningOptions =
+            item.reasoning_options ??
+            (item.supported_reasoning_levels
+              ? [
+                  {
+                    type: "effort" as const,
+                    values: item.supported_reasoning_levels.map((level) => level.effort),
+                  },
+                ]
+              : undefined);
           models.set(item.id, {
             id: item.id,
             name: item.name ?? item.id,
             context: item.context_length ?? item.max_context_length,
             output: item.max_output_tokens,
             tools: item.tool_call ?? item.supports_tools,
+            reasoning: item.reasoning ?? (reasoningOptions ? true : undefined),
+            reasoningOptions,
           });
         }
         if (!models.size) report({ code: "empty-catalogue", sourceIndex });
@@ -197,6 +232,10 @@ export async function discover(input: unknown, report: Reporter): Promise<Invent
             context: item.context ?? discovered?.context,
             output: item.output ?? discovered?.output,
             tools: item.tools ?? discovered?.tools,
+            reasoning: item.reasoning ?? discovered?.reasoning,
+            reasoningOptions: item.reasoning_options
+              ? item.reasoning_options
+              : discovered?.reasoningOptions,
           });
         }
         return { source, apiKey, models } satisfies Inventory;

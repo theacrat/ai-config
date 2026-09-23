@@ -152,7 +152,11 @@ describe("discovery", () => {
       response.end(
         JSON.stringify({
           data: [
-            { id: "manual" },
+            {
+              id: "manual",
+              reasoning: true,
+              reasoning_options: [{ type: "effort", values: ["low", "high", "xhigh", "max"] }],
+            },
             { id: "org/new", max_context_length: 75000, tool_call: false },
             { id: "bare" },
           ],
@@ -165,6 +169,7 @@ describe("discovery", () => {
       name: "Manual",
       enabled: false,
       limit: { context: 500, output: 100 },
+      variants: [{ id: Model.VariantID.make("high"), settings: { reasoningEffort: "high" } }],
     };
     const info = {
       ...Provider.Info.empty(id),
@@ -190,7 +195,15 @@ describe("discovery", () => {
       },
     });
     expect(editor.get("local")?.provider).toEqual(info);
-    expect(editor.get("local")?.models.get("manual")).toEqual(manual);
+    expect(editor.get("local")?.models.get("manual")).toMatchObject({
+      ...manual,
+      variants: [
+        { id: "low", settings: { reasoningEffort: "low" } },
+        { id: "high", settings: { reasoningEffort: "high" } },
+        { id: "xhigh", settings: { reasoningEffort: "xhigh" } },
+        { id: "max", settings: { reasoningEffort: "max" } },
+      ],
+    });
     expect(editor.get("local")?.models.get("org/new")).toMatchObject({
       name: "org/new",
       enabled: true,
@@ -217,6 +230,63 @@ describe("discovery", () => {
     expect(dispose).toHaveBeenCalledOnce();
     expect(plugin.id).toBe("model-discovery");
     expect(typeof plugin.setup).toBe("function");
+  });
+
+  it("carries endpoint reasoning efforts into V1 models and V2 variants", async () => {
+    const baseURL = await endpoint((_request, response) =>
+      response.end(
+        JSON.stringify({
+          data: [
+            {
+              id: "thinker",
+              reasoning: true,
+              reasoning_options: [{ type: "effort", values: ["low", "high", "xhigh"] }],
+            },
+            {
+              id: "codex",
+              supported_reasoning_levels: [
+                { effort: "low", description: "lighter" },
+                { effort: "max", description: "deepest" },
+              ],
+            },
+            { id: "plain" },
+          ],
+        }),
+      ),
+    );
+    const inventories = await discover({ sources: [{ id: "local", baseURL }] }, () => {});
+    const config: Config = {};
+    applyConfig(config, inventories);
+    expect(config.provider?.local?.models?.thinker).toMatchObject({
+      reasoning: true,
+      reasoning_options: [{ type: "effort", values: ["low", "high", "xhigh"] }],
+      variants: {
+        low: { reasoningEffort: "low" },
+        high: { reasoningEffort: "high" },
+        xhigh: { reasoningEffort: "xhigh" },
+      },
+    });
+    expect(config.provider?.local?.models?.codex).toMatchObject({
+      reasoning: true,
+      reasoning_options: [{ type: "effort", values: ["low", "max"] }],
+      variants: {
+        low: { reasoningEffort: "low" },
+        max: { reasoningEffort: "max" },
+      },
+    });
+
+    const editor = editorFixture();
+    applyProviders(editor, inventories);
+    expect(editor.get("local")?.models.get("thinker")?.variants).toEqual([
+      { id: "low", settings: { reasoningEffort: "low" } },
+      { id: "high", settings: { reasoningEffort: "high" } },
+      { id: "xhigh", settings: { reasoningEffort: "xhigh" } },
+    ]);
+    expect(editor.get("local")?.models.get("codex")?.variants).toEqual([
+      { id: "low", settings: { reasoningEffort: "low" } },
+      { id: "max", settings: { reasoningEffort: "max" } },
+    ]);
+    expect(editor.get("local")?.models.get("plain")?.variants).toEqual([]);
   });
 
   it("uses the environment fallback and gives explicit options precedence", async () => {
