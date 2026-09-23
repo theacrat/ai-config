@@ -232,6 +232,35 @@ describe("discovery", () => {
     expect(typeof plugin.setup).toBe("function");
   });
 
+  it("carries endpoint modalities into V1 and V2", async () => {
+    const baseURL = await endpoint((_request, response) =>
+      response.end(JSON.stringify({
+        data: [
+          { id: "vision", modalities: { input: ["text", "image"], output: ["text"] } },
+          { id: "partial", modalities: { input: ["image"] } },
+        ],
+      })),
+    );
+    const inventories = await discover({ sources: [{ id: "local", baseURL }] }, () => {});
+    const config: Config = {};
+    applyConfig(config, inventories);
+    expect(config.provider?.local?.models?.vision?.modalities).toEqual({
+      input: ["text", "image"],
+      output: ["text"],
+    });
+    expect(config.provider?.local?.models?.partial?.modalities).toEqual({
+      input: ["image"],
+      output: ["text"],
+    });
+    const editor = editorFixture();
+    applyProviders(editor, inventories);
+    expect(editor.get("local")?.models.get("vision")?.capabilities).toEqual({
+      input: ["text", "image"],
+      output: ["text"],
+      tools: true,
+    });
+  });
+
   it("carries endpoint reasoning efforts into V1 models and V2 variants", async () => {
     const baseURL = await endpoint((_request, response) =>
       response.end(

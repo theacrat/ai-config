@@ -22,6 +22,11 @@ export function applyConfig(config: Config, inventories: readonly Inventory[]): 
           ? {}
           : { reasoning_options: model.reasoningOptions }),
         ...manual,
+        ...(model.modalities === undefined
+          ? {}
+          : {
+              modalities: { input: ["text"], output: ["text"], ...model.modalities },
+            }),
         ...(model.reasoningOptions === undefined
           ? {}
           : {

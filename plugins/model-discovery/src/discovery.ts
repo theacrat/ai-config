@@ -23,6 +23,10 @@ const defaults = z
     tools: z.boolean().default(true),
   })
   .strict();
+const modalities = z.object({
+  input: z.array(z.enum(["text", "audio", "image", "video", "pdf"])).optional(),
+  output: z.array(z.enum(["text", "audio", "image", "video", "pdf"])).optional(),
+});
 const configuredModel = z
   .object({
     id: identifier,
@@ -31,6 +35,7 @@ const configuredModel = z
     output: positive.optional(),
     tools: z.boolean().optional(),
     reasoning: z.boolean().optional(),
+    modalities: modalities.optional(),
     reasoning_options: z
       .array(z.object({ type: z.literal("effort"), values: z.array(identifier) }).strict())
       .optional(),
@@ -75,6 +80,7 @@ const model = z.object({
   tool_call: z.boolean().optional(),
   supports_tools: z.boolean().optional(),
   reasoning: z.boolean().optional(),
+  modalities: modalities.optional(),
   reasoning_options: z
     .array(z.object({ type: z.literal("effort"), values: z.array(identifier) }).strict())
     .optional(),
@@ -92,6 +98,7 @@ export type DiscoveredModel = {
   output?: number;
   tools?: boolean;
   reasoning?: boolean;
+  modalities?: z.output<typeof modalities>;
   reasoningOptions?: ReadonlyArray<{ type: "effort"; values: ReadonlyArray<string> }>;
 };
 export type Inventory = {
@@ -221,6 +228,7 @@ export async function discover(input: unknown, report: Reporter): Promise<Invent
             tools: item.tool_call ?? item.supports_tools,
             reasoning: item.reasoning ?? (reasoningOptions ? true : undefined),
             reasoningOptions,
+            modalities: item.modalities,
           });
         }
         if (!models.size) report({ code: "empty-catalogue", sourceIndex });
@@ -233,6 +241,9 @@ export async function discover(input: unknown, report: Reporter): Promise<Invent
             output: item.output ?? discovered?.output,
             tools: item.tools ?? discovered?.tools,
             reasoning: item.reasoning ?? discovered?.reasoning,
+            modalities: item.modalities || discovered?.modalities
+              ? { ...discovered?.modalities, ...item.modalities }
+              : undefined,
             reasoningOptions: item.reasoning_options
               ? item.reasoning_options
               : discovered?.reasoningOptions,

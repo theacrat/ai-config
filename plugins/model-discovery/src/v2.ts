@@ -35,8 +35,8 @@ export function applyProviders(editor: ProviderEditor, inventories: readonly Inv
         name: model.name,
         variants,
         capabilities: {
-          input: ["text"],
-          output: ["text"],
+          input: model.modalities?.input ?? ["text"],
+          output: model.modalities?.output ?? ["text"],
           tools: model.tools ?? source.defaults.tools,
         },
         limit: {
