@@ -101,6 +101,7 @@ function observationNode(observation: Observation, compact = false): HTMLElement
   }
   for (const window of [...observation.windows].sort((a, b) => priority(a) - priority(b))) {
     const remaining = window.usedPercent === null ? null : 100 - window.usedPercent;
+    const label = window.label.replace(/\s+Limit Remaining$/i, "");
     const row = element("div", "", "window");
     const title = element("div", "", "window-heading");
     const duration =
@@ -112,7 +113,7 @@ function observationNode(observation: Observation, compact = false): HTMLElement
             ? `${Math.round((window.minutes / 60) * 10) / 10}h`
             : `${Math.round((window.minutes / 1440) * 10) / 10}d`;
     title.append(
-      element("span", `${window.label}${duration ? ` · ${duration}` : ""}`),
+      element("span", `${label}${duration ? ` · ${duration}` : ""}`),
       element(
         "strong",
         remaining === null ? "Quota unknown" : `${Math.round(remaining * 10) / 10}% remaining`,
@@ -129,7 +130,7 @@ function observationNode(observation: Observation, compact = false): HTMLElement
       progress.value = remaining;
       progress.setAttribute(
         "aria-label",
-        `${window.label}: ${Math.round(remaining * 10) / 10}% remaining`,
+        `${label}: ${Math.round(remaining * 10) / 10}% remaining`,
       );
       row.append(progress);
     }
@@ -212,18 +213,7 @@ function accountNode(account: Account): HTMLElement {
       observationNode(live.observation ?? account.observation, live.status === "fresh"),
     );
   } else article.append(observationNode(account.observation));
-  const bankSection = element("section", "", "bank-section");
-  bankSection.setAttribute("aria-label", "Banked resets");
-  if (live?.bank) {
-    const bank = live.bank;
-    if (bank.available === null || bank.available > 0)
-      bankSection.append(element("h3", `Banked resets: ${bank.available ?? "unknown"} available`));
-    if (bank.applicable !== null && bank.applicable > 0)
-      bankSection.append(element("p", `${bank.applicable} applicable now`, "observation-time"));
-    for (const expiry of bank.expiries)
-      bankSection.append(element("p", `Expires ${timeLabel(expiry)}`, "window-time"));
-    if (bank.error) bankSection.append(element("p", bank.error, "error"));
-  }
+  const bankAvailable = live?.bank?.available ?? null;
   const controls = element("div", "", "account-actions");
   function iconButton(iconName: "reset" | "refresh" | "power", label: string): HTMLButtonElement {
     const node = element("button", "", "icon-button");
@@ -251,7 +241,12 @@ function accountNode(account: Account): HTMLElement {
       account.provider === "codex" &&
       (live?.bank?.available === null || (live?.bank?.available ?? 0) > 0)
     ) {
-      const reset = iconButton("reset", "Use banked reset");
+      const reset = iconButton(
+        "reset",
+        bankAvailable === null
+          ? "Use banked reset; availability unknown"
+          : `Use banked reset; ${bankAvailable} available`,
+      );
       reset.dataset.resetAccount = account.id;
       reset.type = "button";
       reset.disabled = pendingActions.has(account.id) || !account.actions.bankReset;
@@ -324,13 +319,8 @@ function accountNode(account: Account): HTMLElement {
       }
     });
     confirmation.append(cancel, confirm);
-    bankSection.append(confirmation);
+    article.append(confirmation);
   }
-  if (
-    bankSection.childElementCount &&
-    (live?.bank?.available === null || (live?.bank?.available ?? 0) > 0)
-  )
-    article.append(bankSection);
   if (pendingActions.has(account.id) || actionMessages.has(account.id)) {
     const result = element(
       "p",

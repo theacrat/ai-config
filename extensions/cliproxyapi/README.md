@@ -82,8 +82,8 @@ Account errors and active cooldowns stay visible.
   asks CPA to refresh that account's credentials. Raw credentials stay server-side.
 - **Use banked reset** appears for Codex and is enabled when available credits are
   greater than zero, even if the applicable count is zero. The panel shows the
-  available and applicable counts and expiry times together. The reset icon opens
-  confirmation in that section. A warning appears when primary quota has at least
+  available count and expiry information in its hover text. The reset icon opens
+  confirmation beside the account controls. A warning appears when primary quota has at least
   30% remaining, or when its reading is stale or unknown. Confirm to consume a reset.
   This calls the provider's credit-consumption endpoint, not CPA's local cooldown reset.
 - Mutation results remain on the account. A successful consumption followed by a
