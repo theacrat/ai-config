@@ -548,6 +548,9 @@ host.onReady((context) => {
 const interval = setInterval(() => {
   if (!document.hidden && !pausePolling) void refresh();
 }, 60000);
+const failureRetryInterval = setInterval(() => {
+  if (failure && !document.hidden) void refresh();
+}, 5000);
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden && !pausePolling) void refresh();
 });
@@ -560,6 +563,7 @@ const connectionTimeout = setTimeout(() => {
 }, 20000);
 window.addEventListener("pagehide", () => {
   clearInterval(interval);
+  clearInterval(failureRetryInterval);
   clearTimeout(connectionTimeout);
   host.dispose();
 });
