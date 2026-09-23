@@ -74,27 +74,47 @@ function timeLabel(time: number): string {
     timeZone: timeZone.value === "utc" ? "UTC" : localTimeZone,
   });
 }
-function observationNode(observation: Observation): HTMLElement {
+function disclosure(label: string, key: string): HTMLDetailsElement {
+  const details = element("details");
+  details.open = expanded.has(key);
+  details.append(element("summary", label));
+  details.addEventListener("toggle", () => {
+    if (!details.isConnected) return;
+    if (details.open) expanded.add(key);
+    else expanded.delete(key);
+  });
+  return details;
+}
+function observationNode(
+  observation: Observation,
+  compact = false,
+  diagnostics?: HTMLElement,
+): HTMLElement {
   const node = element("div");
   const old = observation.observedAt !== null && Date.now() - observation.observedAt > staleAfter;
-  node.append(
-    element(
-      "p",
-      observation.observedAt === null
-        ? "Observation time unknown"
-        : `${old ? "Stale observation · " : "Observed "}${age(observation.observedAt)}`,
-      "observation-time",
-    ),
-  );
+  if (!compact)
+    node.append(
+      element(
+        "p",
+        observation.observedAt === null
+          ? "Observation time unknown"
+          : `${old ? "Stale observation · " : "Observed "}${age(observation.observedAt)}`,
+        "observation-time",
+      ),
+    );
+  const metadata = element("details");
+  metadata.append(element("summary", "Quota details"));
   if (observation.activeLimit)
-    node.append(element("p", `Active limit: ${observation.activeLimit}`, "observation-time"));
+    metadata.append(element("p", `Active limit: ${observation.activeLimit}`, "observation-time"));
   for (const limit of observation.limits) {
     const flags: string[] = [];
     if (limit.allowed !== null) flags.push(limit.allowed ? "allowed" : "not allowed");
     if (limit.limitReached !== null)
       flags.push(limit.limitReached ? "limit reached" : "limit not reached");
     if (flags.length)
-      node.append(element("p", `${limit.name}: ${flags.join(" · ")}`, "observation-time"));
+      metadata.append(element("p", `${limit.name}: ${flags.join(" · ")}`, "observation-time"));
+    if (limit.allowed === false || limit.limitReached === true)
+      node.append(element("p", `${limit.name}: limit reached or unavailable`, "cooldown"));
   }
   if (observation.credits) {
     const credits = observation.credits;
@@ -103,7 +123,7 @@ function observationNode(observation: Observation): HTMLElement {
       parts.push(credits.hasCredits ? "available" : "none available");
     if (credits.unlimited !== null) parts.push(credits.unlimited ? "unlimited" : "limited");
     if (credits.balance !== null) parts.push(`balance ${credits.balance}`);
-    node.append(element("p", `Credits: ${parts.join(" · ")}`, "observation-time"));
+    metadata.append(element("p", `Credits: ${parts.join(" · ")}`, "observation-time"));
   }
   if (!observation.windows.length)
     node.append(
@@ -155,6 +175,7 @@ function observationNode(observation: Observation): HTMLElement {
     );
     node.append(row);
   }
+  if (metadata.childElementCount > 1) (diagnostics ?? node).append(metadata);
   return node;
 }
 function needsAttention(account: Account): boolean {
@@ -172,45 +193,51 @@ function accountNode(account: Account): HTMLElement {
   name.title = `Auth index: ${account.id}`;
   const badges = element("div", "", "badges");
   badges.append(element("span", account.provider, "badge"));
-  badges.append(
-    element("span", account.health, `badge ${account.health === "active" ? "healthy" : "warning"}`),
-  );
-  if (account.disabled) badges.append(element("span", "Disabled", "badge warning"));
+  if (account.health !== "active" && account.health !== "disabled")
+    badges.append(element("span", account.health, "badge warning"));
+  if (account.disabled || account.health === "disabled")
+    badges.append(element("span", "Disabled", "badge warning"));
   if (account.unavailable) badges.append(element("span", "Unavailable", "badge warning"));
   heading.append(name, badges);
   article.append(heading);
   const live = account.live;
+  const diagnostics = disclosure("Account details", `details:${account.id}`);
   if (live && live.status !== "unsupported") {
     article.append(
       element(
         "p",
         live.status === "error"
           ? `Stale / unavailable · ${live.error}`
-          : `Live provider reading · ${live.observation?.observedAt ? age(live.observation.observedAt) : "time unknown"}`,
+          : `Updated ${live.observation?.observedAt ? age(live.observation.observedAt) : "time unknown"}`,
         live.status === "error" ? "error" : "observation-time",
       ),
     );
-    article.append(observationNode(live.observation ?? account.observation));
+    article.append(
+      observationNode(
+        live.observation ?? account.observation,
+        live.status === "fresh",
+        diagnostics,
+      ),
+    );
     if (live.observation) {
       const saved = element("details");
       saved.append(
         element("summary", "Saved CPA observation"),
         observationNode(account.observation),
       );
-      article.append(saved);
+      diagnostics.append(saved);
     }
   } else article.append(observationNode(account.observation));
   if (live?.bank) {
     const bank = live.bank;
+    diagnostics.append(
+      element("p", `Applicable banked resets: ${bank.applicable ?? "unknown"}`, "observation-time"),
+    );
     article.append(
-      element(
-        "p",
-        `Banked resets: ${bank.available ?? "unknown"} available · ${bank.applicable ?? "unknown"} applicable`,
-        "observation-time",
-      ),
+      element("p", `Banked resets: ${bank.available ?? "unknown"} available`, "bank-balance"),
     );
     if (bank.expiries[0])
-      article.append(
+      diagnostics.append(
         element("p", `Next banked reset expiry · ${timeLabel(bank.expiries[0])}`, "window-time"),
       );
     if (bank.error) article.append(element("p", bank.error, "error"));
@@ -249,7 +276,9 @@ function accountNode(account: Account): HTMLElement {
       controls.append(reset);
     }
   }
-  article.append(controls);
+  const manage = disclosure("Manage account", `manage:${account.id}`);
+  manage.append(controls);
+  article.append(manage);
   if (confirming === account.id) {
     const confirmation = element("section", "", "reset-confirmation");
     confirmation.setAttribute("role", "group");
@@ -278,7 +307,8 @@ function accountNode(account: Account): HTMLElement {
       }
     });
     confirmation.append(cancel, confirm);
-    article.append(confirmation);
+    manage.open = true;
+    manage.append(confirmation);
   }
   if (pendingActions.has(account.id) || actionMessages.has(account.id)) {
     const result = element(
@@ -292,11 +322,11 @@ function accountNode(account: Account): HTMLElement {
     article.append(result);
   }
   if (account.disabled === null || account.unavailable === null)
-    article.append(element("p", "Availability partly unknown", "unknown"));
+    diagnostics.append(element("p", "Availability partly unknown", "unknown"));
   if (account.cooldowns === null)
-    article.append(element("p", "Cooldowns unknown (remote or unreported)", "unknown"));
+    diagnostics.append(element("p", "Cooldowns unknown (remote or unreported)", "unknown"));
   for (const cooldown of account.cooldowns ?? []) {
-    article.append(
+    (cooldown.retryAt > Date.now() ? article : diagnostics).append(
       element(
         "p",
         `${cooldown.model ?? "Account"}: ${cooldown.reason.replaceAll("_", " ")} · ${cooldown.retryAt > Date.now() ? "retry" : "retry time passed"} ${timeLabel(cooldown.retryAt)}`,
@@ -305,7 +335,7 @@ function accountNode(account: Account): HTMLElement {
     );
   }
   if (account.retryAt !== null)
-    article.append(element("p", `CPA retry time · ${timeLabel(account.retryAt)}`, "cooldown"));
+    diagnostics.append(element("p", `CPA retry time · ${timeLabel(account.retryAt)}`, "cooldown"));
   if (account.models.length) {
     const details = element("details");
     details.open = expanded.has(account.id);
@@ -319,16 +349,17 @@ function accountNode(account: Account): HTMLElement {
       row.append(element("h3", model.name), observationNode(model.observation));
       details.append(row);
     }
-    article.append(details);
+    diagnostics.append(details);
   }
   if (account.detailsOmitted)
-    article.append(
+    diagnostics.append(
       element(
         "p",
         "Some model or cooldown details omitted (invalid data or display limit).",
         "unknown",
       ),
     );
+  if (diagnostics.childElementCount > 1) article.append(diagnostics);
   return article;
 }
 function render(): void {
@@ -338,7 +369,7 @@ function render(): void {
   connection.textContent = failure
     ? `${snapshot ? "Stale snapshot · " : ""}${failure}`
     : snapshot
-      ? `Connected · Fetched ${age(snapshot.fetchedAt)} · Polls every 60s while visible`
+      ? `Updated ${age(snapshot.fetchedAt)}. Auto-refresh every minute.`
       : "Reading CPA observations…";
   accounts.replaceChildren();
   if (!snapshot) {
@@ -346,6 +377,10 @@ function render(): void {
     return;
   }
   const query = search.value.toLowerCase().trim();
+  required("#view-options-label", HTMLElement).textContent =
+    query || provider.value !== "all" || health.value !== "all"
+      ? "Search and display options (filters active)"
+      : "Search and display options";
   const filtered = snapshot.accounts.filter(
     (account) =>
       (!query ||

@@ -83,10 +83,8 @@ button:disabled {
   outline-offset: 2px;
 }
 #connection {
-  margin: 14px 0;
-  padding: 9px 10px;
-  border-radius: var(--oc-radius, 6px);
-  background: var(--oc-muted-surface, #292e36);
+  margin: 12px 0;
+  color: var(--oc-muted, #aab1bd);
   font-size: 12px;
   overflow-wrap: anywhere;
 }
@@ -127,7 +125,7 @@ select {
   margin: 14px 0 4px;
 }
 .account {
-  padding: 15px 0;
+  padding: 20px 0;
   border-bottom: 1px solid var(--oc-border, #505765);
 }
 .account-heading {
@@ -163,6 +161,7 @@ select {
   overflow-wrap: anywhere;
 }
 .window-heading strong {
+  font-size: 15px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -257,5 +256,21 @@ footer {
   flex-basis: 100%;
 }
 .action-result {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-left: 2px solid var(--oc-border, #505765);
+  background: var(--oc-muted-surface, #292e36);
+  font-size: 12px;
+  line-height: 1.6;
   overflow-wrap: anywhere;
+}
+.bank-balance {
+  margin-top: 12px;
+  font-size: 12px;
+}
+.view-options {
+  margin: 0;
+}
+.view-options[open] > summary {
+  margin-bottom: 12px;
 }
