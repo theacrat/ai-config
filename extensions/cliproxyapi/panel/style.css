@@ -166,6 +166,7 @@ select {
   white-space: nowrap;
 }
 progress {
+  --quota-colour: var(--oc-success, #6baf83);
   display: block;
   width: 100%;
   height: 5px;
@@ -173,21 +174,24 @@ progress {
   border: 0;
   border-radius: 3px;
   background: var(--oc-muted-surface, #292e36);
-  accent-color: var(--oc-primary, #83b0e6);
+  accent-color: var(--quota-colour);
 }
 progress::-webkit-progress-bar {
   background: var(--oc-muted-surface, #292e36);
   border-radius: 3px;
 }
 progress::-webkit-progress-value {
-  background: var(--oc-primary, #83b0e6);
+  background: var(--quota-colour);
   border-radius: 3px;
 }
-progress.high::-webkit-progress-value {
-  background: var(--oc-warning, #d6a349);
+progress::-moz-progress-bar {
+  background: var(--quota-colour);
 }
-progress.high {
-  accent-color: var(--oc-warning, #d6a349);
+progress.low {
+  --quota-colour: var(--oc-warning, #d6a349);
+}
+progress.critical {
+  --quota-colour: var(--oc-error, #df7070);
 }
 .unknown {
   margin-top: 10px;

@@ -136,6 +136,7 @@ function observationNode(
       ),
     );
   for (const window of observation.windows) {
+    const remaining = window.usedPercent === null ? null : 100 - window.usedPercent;
     const row = element("div", "", "window");
     const title = element("div", "", "window-heading");
     const duration =
@@ -150,18 +151,23 @@ function observationNode(
       element("span", `${window.label}${duration ? ` · ${duration}` : ""}`),
       element(
         "strong",
-        window.usedPercent === null
-          ? "Usage unknown"
-          : `${Math.round(window.usedPercent * 10) / 10}% used`,
+        remaining === null ? "Quota unknown" : `${Math.round(remaining * 10) / 10}% remaining`,
       ),
     );
     row.append(title);
     if (window.description) row.append(element("p", window.description, "observation-time"));
-    if (window.usedPercent !== null) {
-      const progress = element("progress", "", window.usedPercent >= 90 ? "high" : "");
+    if (remaining !== null) {
+      const progress = element(
+        "progress",
+        "",
+        remaining >= 70 ? "healthy" : remaining >= 30 ? "low" : "critical",
+      );
       progress.max = 100;
-      progress.value = window.usedPercent;
-      progress.setAttribute("aria-label", `${window.label}: ${window.usedPercent}% used`);
+      progress.value = remaining;
+      progress.setAttribute(
+        "aria-label",
+        `${window.label}: ${Math.round(remaining * 10) / 10}% remaining`,
+      );
       row.append(progress);
     }
     row.append(
