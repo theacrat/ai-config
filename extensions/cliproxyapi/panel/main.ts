@@ -28,6 +28,8 @@ function required<T extends Element>(selector: string, kind: { new (): T }): T {
 }
 const refreshButton = required("#refresh", HTMLButtonElement);
 const managementButton = required("#management", HTMLButtonElement);
+refreshButton.classList.add("icon-button");
+managementButton.classList.add("icon-button");
 let managementUrl: string | null = null;
 const search = required("#search", HTMLInputElement);
 const provider = required("#provider", HTMLSelectElement);
@@ -147,7 +149,7 @@ function observationNode(observation: Observation, compact = false): HTMLElement
   }
   return node;
 }
-function icon(name: "reset" | "refresh" | "power"): SVGSVGElement {
+function icon(name: "reset" | "refresh" | "power" | "external"): SVGSVGElement {
   const shapes = {
     reset: [
       ["path", "M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"],
@@ -162,6 +164,11 @@ function icon(name: "reset" | "refresh" | "power"): SVGSVGElement {
     power: [
       ["path", "M18.36 6.64a9 9 0 1 1-12.73 0"],
       ["line", "12"],
+    ],
+    external: [
+      ["path", "M15 3h6v6"],
+      ["path", "M10 14 21 3"],
+      ["path", "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"],
     ],
   } as const;
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -180,6 +187,12 @@ function icon(name: "reset" | "refresh" | "power"): SVGSVGElement {
   }
   return svg;
 }
+refreshButton.replaceChildren(icon("refresh"));
+refreshButton.title = "Refresh quotas";
+refreshButton.setAttribute("aria-label", "Refresh quotas");
+managementButton.replaceChildren(icon("external"));
+managementButton.title = "Open management";
+managementButton.setAttribute("aria-label", "Open management");
 function needsAttention(account: Account): boolean {
   return (
     account.disabled === true ||
@@ -356,7 +369,7 @@ function accountNode(account: Account): HTMLElement {
 }
 function render(): void {
   refreshButton.disabled = busy;
-  refreshButton.textContent = busy ? "Refreshing…" : "Refresh";
+  refreshButton.title = busy ? "Refreshing quotas…" : "Refresh quotas";
   connection.className = failure ? "error" : "";
   connection.textContent = failure
     ? `${snapshot ? "Stale snapshot · " : ""}${failure}`
