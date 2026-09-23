@@ -44,6 +44,7 @@ let failure = "";
 let pausePolling = false;
 const pendingActions = new Set<string>();
 const actionMessages = new Map<string, string>();
+const actionMessageTimers = new Map<string, ReturnType<typeof setTimeout>>();
 let confirming: string | null = null;
 let revision = 0;
 const staleAfter = 15 * 60 * 1000;
@@ -71,11 +72,7 @@ function timeLabel(time: number): string {
     timeZone: localTimeZone,
   });
 }
-function observationNode(
-  observation: Observation,
-  compact = false,
-  diagnostics?: HTMLElement,
-): HTMLElement {
+function observationNode(observation: Observation, compact = false): HTMLElement {
   const node = element("div");
   const old = observation.observedAt !== null && Date.now() - observation.observedAt > staleAfter;
   if (!compact)
@@ -88,28 +85,6 @@ function observationNode(
         "observation-time",
       ),
     );
-  const metadata = element("div", "", "quota-details");
-  if (observation.activeLimit)
-    metadata.append(element("p", `Active limit: ${observation.activeLimit}`, "observation-time"));
-  for (const limit of observation.limits) {
-    const flags: string[] = [];
-    if (limit.allowed !== null) flags.push(limit.allowed ? "allowed" : "not allowed");
-    if (limit.limitReached !== null)
-      flags.push(limit.limitReached ? "limit reached" : "limit not reached");
-    if (flags.length)
-      metadata.append(element("p", `${limit.name}: ${flags.join(" · ")}`, "observation-time"));
-    if (limit.allowed === false || limit.limitReached === true)
-      node.append(element("p", `${limit.name}: limit reached or unavailable`, "cooldown"));
-  }
-  if (observation.credits) {
-    const credits = observation.credits;
-    const parts: string[] = [];
-    if (credits.hasCredits !== null)
-      parts.push(credits.hasCredits ? "available" : "none available");
-    if (credits.unlimited !== null) parts.push(credits.unlimited ? "unlimited" : "limited");
-    if (credits.balance !== null) parts.push(`balance ${credits.balance}`);
-    metadata.append(element("p", `Credits: ${parts.join(" · ")}`, "observation-time"));
-  }
   if (!observation.windows.length)
     node.append(
       element(
@@ -144,7 +119,6 @@ function observationNode(
       ),
     );
     row.append(title);
-    if (window.description) row.append(element("p", window.description, "observation-time"));
     if (remaining !== null) {
       const progress = element(
         "progress",
@@ -170,8 +144,22 @@ function observationNode(
     );
     node.append(row);
   }
-  if (metadata.childElementCount) (diagnostics ?? node).append(metadata);
   return node;
+}
+function icon(name: "reset" | "refresh" | "power"): SVGSVGElement {
+  const paths = {
+    reset: "M3 12a9 9 0 1 0 3-6.7M3 4v5h5",
+    refresh: "M20 11a8 8 0 0 0-14.7-4L3 10m0 0V5m0 5h5M4 13a8 8 0 0 0 14.7 4L21 14m0 0v5m0-5h-5",
+    power: "M12 2v10m5.7-7.7a8 8 0 1 1-11.4 0",
+  } as const;
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  svg.classList.add("icon");
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", paths[name]);
+  svg.append(path);
+  return svg;
 }
 function needsAttention(account: Account): boolean {
   return (
@@ -200,44 +188,39 @@ function accountNode(account: Account): HTMLElement {
   const live = account.live;
   const diagnostics = element("div", "", "account-details");
   if (live && live.status !== "unsupported") {
+    if (live.status === "error")
+      article.append(element("p", `Stale / unavailable · ${live.error}`, "error"));
     article.append(
-      element(
-        "p",
-        live.status === "error"
-          ? `Stale / unavailable · ${live.error}`
-          : `Updated ${live.observation?.observedAt ? age(live.observation.observedAt) : "time unknown"}`,
-        live.status === "error" ? "error" : "observation-time",
-      ),
-    );
-    article.append(
-      observationNode(
-        live.observation ?? account.observation,
-        live.status === "fresh",
-        diagnostics,
-      ),
+      observationNode(live.observation ?? account.observation, live.status === "fresh"),
     );
   } else article.append(observationNode(account.observation));
   const bankSection = element("section", "", "bank-section");
   bankSection.setAttribute("aria-label", "Banked resets");
   if (live?.bank) {
     const bank = live.bank;
-    bankSection.append(
-      element("h3", `Banked resets: ${bank.available ?? "unknown"} available`),
-      element("p", `${bank.applicable ?? "unknown"} applicable now`, "observation-time"),
-    );
+    if (bank.available === null || bank.available > 0)
+      bankSection.append(element("h3", `Banked resets: ${bank.available ?? "unknown"} available`));
+    if (bank.applicable !== null && bank.applicable > 0)
+      bankSection.append(element("p", `${bank.applicable} applicable now`, "observation-time"));
     for (const expiry of bank.expiries)
       bankSection.append(element("p", `Expires ${timeLabel(expiry)}`, "window-time"));
     if (bank.error) bankSection.append(element("p", bank.error, "error"));
   }
   const controls = element("div", "", "account-actions");
-  function iconButton(symbol: string, label: string): HTMLButtonElement {
-    const node = element("button", symbol, "icon-button");
+  function iconButton(iconName: "reset" | "refresh" | "power", label: string): HTMLButtonElement {
+    const node = element("button", "", "icon-button");
     node.type = "button";
     node.title = label;
     node.setAttribute("aria-label", label);
+    node.append(icon(iconName));
     return node;
   }
-  function button(symbol: string, label: string, action: Action, enabled: boolean) {
+  function button(
+    symbol: "reset" | "refresh" | "power",
+    label: string,
+    action: Action,
+    enabled: boolean,
+  ) {
     const node = iconButton(symbol, label);
     node.disabled = pendingActions.has(account.id) || !enabled;
     node.addEventListener("click", () => {
@@ -246,8 +229,11 @@ function accountNode(account: Account): HTMLElement {
     controls.append(node);
   }
   if (account.actions) {
-    if (account.provider === "codex") {
-      const reset = iconButton("↶", "Use banked reset");
+    if (
+      account.provider === "codex" &&
+      (live?.bank?.available === null || (live?.bank?.available ?? 0) > 0)
+    ) {
+      const reset = iconButton("reset", "Use banked reset");
       reset.dataset.resetAccount = account.id;
       reset.type = "button";
       reset.disabled = pendingActions.has(account.id) || !account.actions.bankReset;
@@ -259,13 +245,13 @@ function accountNode(account: Account): HTMLElement {
       controls.append(reset);
     }
     button(
-      "⟳",
+      "refresh",
       "Refresh credentials",
       { kind: "refresh-auth", accountId: account.id },
       account.actions.refreshAuth,
     );
     button(
-      "⏻",
+      "power",
       account.disabled ? "Enable" : "Disable",
       { kind: "set-disabled", accountId: account.id, disabled: !account.disabled },
       account.actions.status && account.disabled !== null,
@@ -322,7 +308,11 @@ function accountNode(account: Account): HTMLElement {
     confirmation.append(cancel, confirm);
     bankSection.append(confirmation);
   }
-  if (bankSection.childElementCount) article.append(bankSection);
+  if (
+    bankSection.childElementCount &&
+    (live?.bank?.available === null || (live?.bank?.available ?? 0) > 0)
+  )
+    article.append(bankSection);
   if (pendingActions.has(account.id) || actionMessages.has(account.id)) {
     const result = element(
       "p",
@@ -458,6 +448,19 @@ refreshButton.addEventListener("click", () => {
   void loadInfo();
   void refresh(true);
 });
+function showActionMessage(accountId: string, message: string): void {
+  actionMessages.set(accountId, message);
+  const previousTimer = actionMessageTimers.get(accountId);
+  if (previousTimer) clearTimeout(previousTimer);
+  actionMessageTimers.set(
+    accountId,
+    setTimeout(() => {
+      actionMessages.delete(accountId);
+      actionMessageTimers.delete(accountId);
+      render();
+    }, 3000),
+  );
+}
 async function runAction(action: Action): Promise<void> {
   if (pendingActions.has(action.accountId)) return;
   pendingActions.add(action.accountId);
@@ -472,12 +475,12 @@ async function runAction(action: Action): Promise<void> {
     });
     if (response.status !== 200) throw new Error();
     const result = actionResultSchema.parse(JSON.parse(response.body));
-    actionMessages.set(action.accountId, result.message);
+    showActionMessage(action.accountId, result.message);
     const current = await host.serviceRequest({ method: "GET", path: "/snapshot" });
     if (current.status === 200) snapshot = snapshotSchema.parse(JSON.parse(current.body));
   } catch {
     if (!actionMessages.has(action.accountId))
-      actionMessages.set(
+      showActionMessage(
         action.accountId,
         "Outcome uncertain. Check current account state before trying again; no automatic retry was made.",
       );

@@ -277,11 +277,20 @@ footer {
   font-size: 20px;
   line-height: 1;
 }
+.icon {
+  display: block;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
 .bank-section {
   margin-top: 14px;
-  padding: 10px 12px;
-  background: var(--oc-muted-surface, #292e36);
-  border-radius: var(--oc-radius, 6px);
+  padding-top: 12px;
+  border-top: 1px solid var(--oc-border, #505765);
 }
 .bank-section h3 {
   margin: 0;
