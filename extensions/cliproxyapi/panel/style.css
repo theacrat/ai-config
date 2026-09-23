@@ -272,6 +272,9 @@ footer {
   gap: 4px;
 }
 .icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 32px;
   padding: 3px;
   font-size: 20px;
