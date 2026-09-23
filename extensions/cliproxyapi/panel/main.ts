@@ -147,18 +147,36 @@ function observationNode(observation: Observation, compact = false): HTMLElement
   return node;
 }
 function icon(name: "reset" | "refresh" | "power"): SVGSVGElement {
-  const paths = {
-    reset: "M3 12a9 9 0 1 0 3-6.7M3 4v5h5",
-    refresh: "M20 11a8 8 0 0 0-14.7-4L3 10m0 0V5m0 5h5M4 13a8 8 0 0 0 14.7 4L21 14m0 0v5m0-5h-5",
-    power: "M12 2v10m5.7-7.7a8 8 0 1 1-11.4 0",
+  const shapes = {
+    reset: [
+      ["path", "M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"],
+      ["path", "M3 3v5h5"],
+    ],
+    refresh: [
+      ["path", "M20 11a8.1 8.1 0 0 0-15.5-2"],
+      ["path", "M4 5v4h4"],
+      ["path", "M4 13a8.1 8.1 0 0 0 15.5 2"],
+      ["path", "M20 19v-4h-4"],
+    ],
+    power: [
+      ["path", "M18.36 6.64a9 9 0 1 1-12.73 0"],
+      ["line", "12"],
+    ],
   } as const;
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("viewBox", "0 0 24 24");
   svg.setAttribute("aria-hidden", "true");
   svg.classList.add("icon");
-  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  path.setAttribute("d", paths[name]);
-  svg.append(path);
+  for (const [tag, data] of shapes[name]) {
+    const shape = document.createElementNS("http://www.w3.org/2000/svg", tag);
+    shape.setAttribute(tag === "line" ? "x1" : "d", data);
+    if (tag === "line") {
+      shape.setAttribute("x2", "12");
+      shape.setAttribute("y1", "2");
+      shape.setAttribute("y2", "12");
+    }
+    svg.append(shape);
+  }
   return svg;
 }
 function needsAttention(account: Account): boolean {

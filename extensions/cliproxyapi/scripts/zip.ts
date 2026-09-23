@@ -21,6 +21,7 @@ const process = Bun.spawn(
     "licenses/openchamber-sdk-MIT.txt",
     "licenses/zod-MIT.txt",
     "licenses/cliproxyapi-management-MIT.txt",
+    "licenses/lucide-ISC.txt",
   ],
   { stdout: "inherit", stderr: "inherit" },
 );
