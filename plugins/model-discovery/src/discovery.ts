@@ -39,6 +39,19 @@ const cost = z.object({
     cache_write: z.number().nonnegative().optional(),
   }).optional(),
 });
+
+function antigravityName(id: string): string {
+  const base = id.replace(/-(thinking|minimal|low|medium|high|max|agent)$/, "");
+  return base
+    .split(/[-_/]+/)
+    .filter(Boolean)
+    .map((part) => /^(gpt|gemini|claude|oss)$/i.test(part) ? part.toUpperCase() : `${part[0]?.toUpperCase() ?? ""}${part.slice(1)}`)
+    .join(" ");
+}
+
+function displayName(id: string, owner: string | undefined, name: string | undefined): string {
+  return name ?? (owner === "antigravity" ? antigravityName(id) : id);
+}
 const configuredModel = z
   .object({
     id: identifier,
@@ -197,7 +210,7 @@ export async function discover(input: unknown, report: Reporter): Promise<Invent
             item.id,
             {
               ...metadata,
-              name: item.name ?? item.id,
+              name: displayName(item.id, undefined, item.name),
               releaseDate: item.release_date,
               ...(reasoning_options === undefined ? {} : { reasoningOptions: reasoning_options }),
             },
@@ -253,7 +266,7 @@ export async function discover(input: unknown, report: Reporter): Promise<Invent
               : undefined);
           models.set(item.id, {
             id: item.id,
-            name: item.name ?? item.id,
+            name: displayName(item.id, item.owned_by, item.name),
             context: item.context_length ?? item.max_context_length,
             output: item.max_output_tokens,
             tools: item.tool_call ?? item.supports_tools,
