@@ -213,10 +213,13 @@ Only `id` is required per model. `name` defaults to `id`. The plugin recognises 
 | Output limit  | `max_output_tokens`, then the source default                         |
 | Tool support  | `tool_call`, then `supports_tools`, then the source default          |
 | Thinking      | `reasoning_options`, or `supported_reasoning_levels[].effort`       |
+| Display name  | `name`; duplicate names get ` (owned_by)` appended                 |
+| Pricing       | `cost.input`, `cost.output`, `cost.cache_read`, `cost.cache_write`   |
+| Model metadata| `release_date`, `attachment`, `temperature`, `status`                |
 
 These fields are not guaranteed by the standard OpenAI models endpoint. Numeric strings, null limits, nonpositive limits, duplicate model IDs and malformed entries invalidate that source's whole response. Unknown fields such as `object` and `owned_by` are ignored. Empty catalogues are valid. The IDs `__proto__`, `prototype` and `constructor` are rejected for both providers and models. IDs cannot contain `#` or surrounding whitespace. Provider IDs cannot contain `/`; model IDs can.
 
-The plugin does not infer pricing, reasoning or vision support from names. When the endpoint supplies effort values, V1 exposes `reasoning`, `reasoning_options`, and explicit variants; V2 exposes variants with `reasoningEffort` settings. V1 leaves pricing unspecified. V2 supplies an empty cost list. Both adapters carry endpoint `modalities.input` and `modalities.output`, defaulting missing directions to `["text"]`. Configured directions override discovered directions. Existing manual overrides can supply additional capabilities or costs.
+The plugin does not infer pricing, reasoning or vision support from names. When the endpoint supplies effort values, V1 exposes `reasoning`, `reasoning_options`, and explicit variants; V2 exposes variants with `reasoningEffort` settings. V1 carries endpoint pricing and supported model metadata. V2 carries the same display and capability metadata where its schema permits. Both adapters carry endpoint `modalities.input` and `modalities.output`, defaulting missing directions to `["text"]`. Configured directions override discovered directions. Existing manual overrides can supply additional capabilities or costs.
 
 V1 merges discovered models into the provider's configuration, with manual fields and nested limits taking precedence. V2 adds source definitions through `ctx.provider.transform`. Existing source models with the same ID retain their fields while discovered variants are merged by ID, with existing variants taking precedence, and OpenCode applies its configured model overrides when it materialises models. Both adapters preserve unrelated providers, manual-only models, provider settings and activation choices. Existing provider settings override the source's base URL and API key for inference; discovery itself always uses the source options.
 
