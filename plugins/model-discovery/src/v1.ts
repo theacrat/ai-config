@@ -16,6 +16,11 @@ export function applyConfig(config: Config, inventories: readonly Inventory[]): 
       discovered[model.id] = {
         id: model.id,
         name: model.name,
+        ...(model.releaseDate === undefined ? {} : { release_date: model.releaseDate }),
+        ...(model.attachment === undefined ? {} : { attachment: model.attachment }),
+        ...(model.temperature === undefined ? {} : { temperature: model.temperature }),
+        ...(model.status === undefined ? {} : { status: model.status }),
+        ...(model.cost === undefined ? {} : { cost: model.cost }),
         tool_call: model.tools ?? source.defaults.tools,
         ...(model.reasoning === undefined ? {} : { reasoning: model.reasoning }),
         ...(model.reasoningOptions === undefined

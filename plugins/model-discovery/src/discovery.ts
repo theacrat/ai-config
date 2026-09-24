@@ -27,6 +27,18 @@ const modalities = z.object({
   input: z.array(z.enum(["text", "audio", "image", "video", "pdf"])).optional(),
   output: z.array(z.enum(["text", "audio", "image", "video", "pdf"])).optional(),
 });
+const cost = z.object({
+  input: z.number().nonnegative(),
+  output: z.number().nonnegative(),
+  cache_read: z.number().nonnegative().optional(),
+  cache_write: z.number().nonnegative().optional(),
+  context_over_200k: z.object({
+    input: z.number().nonnegative(),
+    output: z.number().nonnegative(),
+    cache_read: z.number().nonnegative().optional(),
+    cache_write: z.number().nonnegative().optional(),
+  }).optional(),
+});
 const configuredModel = z
   .object({
     id: identifier,
@@ -36,6 +48,11 @@ const configuredModel = z
     tools: z.boolean().optional(),
     reasoning: z.boolean().optional(),
     modalities: modalities.optional(),
+    cost: cost.optional(),
+    release_date: z.string().optional(),
+    attachment: z.boolean().optional(),
+    temperature: z.boolean().optional(),
+    status: z.enum(["alpha", "beta", "deprecated", "active"]).optional(),
     reasoning_options: z
       .array(z.object({ type: z.literal("effort"), values: z.array(identifier) }).strict())
       .optional(),
@@ -81,6 +98,13 @@ const model = z.object({
   supports_tools: z.boolean().optional(),
   reasoning: z.boolean().optional(),
   modalities: modalities.optional(),
+  cost: cost.optional(),
+  owned_by: z.string().min(1).optional(),
+  created: z.number().int().nonnegative().optional(),
+  release_date: z.string().optional(),
+  attachment: z.boolean().optional(),
+  temperature: z.boolean().optional(),
+  status: z.enum(["alpha", "beta", "deprecated", "active"]).optional(),
   reasoning_options: z
     .array(z.object({ type: z.literal("effort"), values: z.array(identifier) }).strict())
     .optional(),
@@ -99,6 +123,12 @@ export type DiscoveredModel = {
   tools?: boolean;
   reasoning?: boolean;
   modalities?: z.output<typeof modalities>;
+  cost?: z.output<typeof cost>;
+  ownedBy?: string;
+  releaseDate?: string;
+  attachment?: boolean;
+  temperature?: boolean;
+  status?: "alpha" | "beta" | "deprecated" | "active";
   reasoningOptions?: ReadonlyArray<{ type: "effort"; values: ReadonlyArray<string> }>;
 };
 export type Inventory = {
@@ -168,6 +198,7 @@ export async function discover(input: unknown, report: Reporter): Promise<Invent
             {
               ...metadata,
               name: item.name ?? item.id,
+              releaseDate: item.release_date,
               ...(reasoning_options === undefined ? {} : { reasoningOptions: reasoning_options }),
             },
           ];
@@ -229,7 +260,20 @@ export async function discover(input: unknown, report: Reporter): Promise<Invent
             reasoning: item.reasoning ?? (reasoningOptions ? true : undefined),
             reasoningOptions,
             modalities: item.modalities,
+            cost: item.cost,
+            ownedBy: item.owned_by,
+            releaseDate: item.release_date,
+            attachment: item.attachment,
+            temperature: item.temperature,
+            status: item.status,
           });
+        }
+        const names = new Map<string, number>();
+        for (const model of models.values()) names.set(model.name, (names.get(model.name) ?? 0) + 1);
+        for (const model of models.values()) {
+          if ((names.get(model.name) ?? 0) > 1 && model.ownedBy) {
+            model.name = `${model.name} (${model.ownedBy})`;
+          }
         }
         if (!models.size) report({ code: "empty-catalogue", sourceIndex });
         for (const item of source.models) {
@@ -244,6 +288,12 @@ export async function discover(input: unknown, report: Reporter): Promise<Invent
             modalities: item.modalities || discovered?.modalities
               ? { ...discovered?.modalities, ...item.modalities }
               : undefined,
+            cost: item.cost ?? discovered?.cost,
+            ownedBy: discovered?.ownedBy,
+            releaseDate: item.release_date ?? discovered?.releaseDate,
+            attachment: item.attachment ?? discovered?.attachment,
+            temperature: item.temperature ?? discovered?.temperature,
+            status: item.status ?? discovered?.status,
             reasoningOptions: item.reasoning_options
               ? item.reasoning_options
               : discovered?.reasoningOptions,
