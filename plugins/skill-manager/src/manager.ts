@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, readFileSync, realpathSync } from "node:fs";
-import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { basename, dirname, join, resolve, sep } from "node:path";
 import { Skill } from "@opencode/plugin";
 import type { SkillEditor } from "@opencode/plugin/promise/skill";
 import { parse } from "yaml";
@@ -79,41 +79,41 @@ export function loadCatalogue(checkout: string): readonly Skill.Info[] {
   const entries = new Map<string, Skill.Info>();
   for (const { id, path } of all)
     entries.set(id, parseSkill(readFileSync(path, "utf8"), realpathSync(path), id));
-  entries.set("skill-discovery", {
-    id: Skill.ID.make("skill-discovery"),
-    name: Skill.Name.make("Skill discovery"),
-    description:
-      "Before working, load this discovery guide. Find task guidance with skill_search, then native skill(id).",
-    path: Skill.Info.fields.path.make(
-      join(checkout, "plugins/skill-manager/skills/skill-discovery/SKILL.md"),
-    ),
-    content:
-      "At session start, load thea-mode using the native skill tool if available. Follow its required skills through native skill(id). Before a task, search skill_search with a short task description, then load relevant exact IDs with native skill(id). Search returns metadata only and may include permission-denied skills. Native loading applies OpenCode permissions. Do not load unrelated skills or enumerate the catalogue.",
-    autoinvoke: true,
-  });
+  const routerPath = join(checkout, "plugins/skill-manager/skills/skill-discovery/SKILL.md");
+  const router = parseSkill(
+    readFileSync(routerPath, "utf8"),
+    realpathSync(routerPath),
+    "skill-discovery",
+  );
+  entries.set("skill-discovery", { ...router, autoinvoke: true });
   return [...entries.values()];
 }
 
-export function isManagedPath(path: string, roots: readonly string[]): boolean {
-  const canonical = existsSync(path) ? realpathSync(path) : resolve(path);
-  return roots.some((root) => {
-    const rel = relative(resolve(root), canonical);
-    return (
-      rel === "" ||
-      (rel !== ".." &&
-        !rel.startsWith(`..${process.platform === "win32" ? "\\" : "/"}`) &&
-        !isAbsolute(rel))
-    );
+function canonicalPath(path: string): string {
+  return existsSync(path) ? realpathSync(path) : resolve(path);
+}
+
+export function managedPaths(
+  entries: readonly Skill.Info[],
+  checkout: string,
+  legacyBundle: string,
+): readonly string[] {
+  const pstack = join(checkout, "plugins/pstack/pstack/skills") + sep;
+  return entries.flatMap((entry) => {
+    const path = canonicalPath(entry.path);
+    return path.startsWith(pstack)
+      ? [path, canonicalPath(join(legacyBundle, "pstack/skills", path.slice(pstack.length)))]
+      : [path];
   });
 }
 
 export function applyCatalogue(
   editor: SkillEditor,
   entries: readonly Skill.Info[],
-  roots: readonly string[],
+  ownedPaths: ReadonlySet<string>,
 ): void {
   for (const existing of editor.list()) {
-    if (isManagedPath(String(existing.path), roots)) editor.remove(String(existing.id));
+    if (ownedPaths.has(canonicalPath(String(existing.path)))) editor.remove(String(existing.id));
   }
   for (const entry of entries) {
     if (!editor.get(entry.id)) editor.add(entry);

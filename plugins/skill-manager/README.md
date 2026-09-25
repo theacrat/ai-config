@@ -22,8 +22,11 @@ Checkout resolution follows the real package directory, including through symlin
 Keep the source checkout and its submodules available. Missing selected files or
 invalid YAML fail startup rather than silently dropping selected guidance.
 
-The plugin replaces only entries resolved inside the checkout or the former
-`$XDG_DATA_HOME/ai-config` bundle. External project and user overrides win. Other
+The plugin replaces only exact selected source paths, previously selected paths
+seen by this plugin instance, and corresponding legacy pstack skill paths under
+`$XDG_DATA_HOME/ai-config/pstack/skills`. Project and user overrides win, including
+`.opencode/skills` definitions inside this checkout. Unselected source files and other
+data-bundle files are not owned. Other
 skills retain their visibility. The released `@opencode/plugin@2.0.16` schema calls
 the source file field `path`; the current guide's `location` example is outdated.
 

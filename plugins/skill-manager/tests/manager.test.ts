@@ -7,6 +7,7 @@ import {
   applyCatalogue,
   checkoutRoot,
   loadCatalogue,
+  managedPaths,
   parseSkill,
   searchCatalogue,
 } from "../src/manager";
@@ -19,6 +20,11 @@ function fixture() {
   const root = mkdtempSync("/tmp/opencode/skill-manager-test-");
   temporary.push(root);
   writeFileSync(join(root, "sources.json"), '{"skills":[]}');
+  write(
+    root,
+    "plugins/skill-manager/skills/skill-discovery/SKILL.md",
+    readFileSync(new URL("../skills/skill-discovery/SKILL.md", import.meta.url), "utf8"),
+  );
   return root;
 }
 function write(root: string, path: string, text: string) {
@@ -61,7 +67,7 @@ describe("native catalogue", () => {
     );
     const entries = loadCatalogue(root);
     const { editor, values } = editorFor();
-    applyCatalogue(editor, entries, [root]);
+    applyCatalogue(editor, entries, new Set(managedPaths(entries, root, join(root, "legacy"))));
     expect(values.size).toBe(152);
     expect(
       [...values.values()]
@@ -108,9 +114,52 @@ describe("native catalogue", () => {
     applyCatalogue(
       editor,
       [parseSkill("Managed body", join(root, "task/SKILL.md"), "task")],
-      [root],
+      new Set([stale.path, join(root, "task/SKILL.md")]),
     );
     expect([...values.values()]).toEqual([project, unrelated]);
+  });
+  it("preserves project overrides and unselected files inside the checkout and legacy data", () => {
+    const root = fixture();
+    const managed = parseSkill(
+      "Managed",
+      write(root, "plugins/pstack/pstack/skills/task/SKILL.md", "Managed"),
+      "task",
+    );
+    const override = {
+      ...parseSkill("Project", write(root, ".opencode/skills/task/SKILL.md", "Project"), "task"),
+      autoinvoke: true,
+    };
+    const unrelated = parseSkill(
+      "Unselected",
+      write(root, "sources/unused/SKILL.md", "Unselected"),
+      "unused",
+    );
+    const data = join(root, "legacy");
+    const unrelatedData = parseSkill(
+      "Unrelated data",
+      write(data, "custom/SKILL.md", "Unrelated data"),
+      "data",
+    );
+    const old = parseSkill(
+      "Old copy",
+      write(data, "pstack/skills/task/SKILL.md", "Old copy"),
+      "old-alias",
+    );
+    const { editor, values } = editorFor([override, unrelated, unrelatedData, old]);
+    applyCatalogue(editor, [managed], new Set(managedPaths([managed], root, data)));
+    expect([...values.values()]).toEqual([override, unrelated, unrelatedData]);
+  });
+  it("reads the router body from its real native skill file", () => {
+    const root = fixture();
+    const router = loadCatalogue(root).find((entry) => entry.id === "skill-discovery");
+    expect(router).toBeDefined();
+    const disk = readFileSync(router?.path ?? "", "utf8");
+    expect(router?.content).toBe(parseSkill(disk, router?.path ?? "", "skill-discovery").content);
+    expect(router?.content).toContain("native skill(id)");
+    writeFileSync(router?.path ?? "", "Updated router instructions");
+    expect(loadCatalogue(root).find((entry) => entry.id === "skill-discovery")?.content).toBe(
+      "Updated router instructions",
+    );
   });
   it("replays refreshed additions, edits and removals without changing prior snapshots", () => {
     const root = fixture();

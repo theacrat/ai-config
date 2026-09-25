@@ -6,6 +6,7 @@ import {
   applyCatalogue,
   checkoutRoot,
   loadCatalogue,
+  managedPaths,
   searchCatalogue,
   searchInput,
 } from "./manager";
@@ -14,12 +15,15 @@ export default Plugin.define({
   id: "ai-config.skill-manager",
   async setup(ctx) {
     const checkout = checkoutRoot(join(dirname(fileURLToPath(import.meta.url)), ".."));
-    const roots = [
-      checkout,
-      join(process.env.XDG_DATA_HOME ?? join(homedir(), ".local/share"), "ai-config"),
-    ];
+    const legacyBundle = join(
+      process.env.XDG_DATA_HOME ?? join(homedir(), ".local/share"),
+      "ai-config",
+    );
     let catalogue = loadCatalogue(checkout);
-    const skill = await ctx.skill.transform((editor) => applyCatalogue(editor, catalogue, roots));
+    const ownedPaths = new Set(managedPaths(catalogue, checkout, legacyBundle));
+    const skill = await ctx.skill.transform((editor) =>
+      applyCatalogue(editor, catalogue, ownedPaths),
+    );
     const tool = await ctx.tool.transform((editor) => {
       editor.add({
         name: "skill_search",
@@ -44,6 +48,7 @@ export default Plugin.define({
       try {
         const next = loadCatalogue(checkout);
         if (JSON.stringify(next) === JSON.stringify(catalogue)) return;
+        for (const path of managedPaths(next, checkout, legacyBundle)) ownedPaths.add(path);
         catalogue = next;
         void ctx.skill
           .reload()
