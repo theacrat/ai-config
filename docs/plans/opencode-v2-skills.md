@@ -49,5 +49,8 @@ work and must be preserved.
 
 - Grounding complete. Existing installation targets five applications and writes
   shared discovery directories, producing duplicate sources in V2.
-- Plugin and installer implementation delegated to isolated worktrees.
+- Installer replaced and verified with 18 temporary-home tests.
+- First-party research and hidden-skill native activation proof recorded in
+  `docs/research/opencode-v2-skill-discovery.md`.
+- Plugin implementation and isolated runtime verification are in progress.
 - Runtime verification and independent review pending.

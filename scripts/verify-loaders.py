@@ -15,7 +15,7 @@ def main():
     if not version.strip().startswith("opencode v2."):
         raise SystemExit(f"OpenCode V2 required, found {version.strip()}")
     result = subprocess.run(
-        [args.opencode, "api", "--standalone", "get", "/api/skill"],
+        [args.opencode, "api", "get", "/api/skill"],
         capture_output=True,
         text=True,
         check=True,
@@ -27,7 +27,10 @@ def main():
         skill for skill in skills if Path(skill.get("path", "/")).is_relative_to(root)
     ]
     if not managed:
-        raise SystemExit("No managed skills loaded. Run ./install.sh first.")
+        raise SystemExit(
+            "No managed skills loaded. Run ./install.sh, restart the OpenCode "
+            "service, and open this checkout in OpenChamber before checking."
+        )
     advertised = [skill["id"] for skill in managed if skill.get("autoinvoke", True)]
     if len(advertised) > 2:
         raise SystemExit(f"Unbounded managed catalogue: {advertised}")
