@@ -48,8 +48,6 @@ class FakeProvider(BaseHTTPRequestHandler):
             tools = body.get("tools", [])
             names = [tool.get("function", {}).get("name", "") for tool in tools]
             candidates = [name for name in names if name == "skill_search"]
-            if not candidates:
-                candidates = [name for name in names if name == "skill"]
             require(candidates, f"No skill discovery tool in outgoing tools: {names}")
             reply = {
                 "id": "context-proof-call",
@@ -68,9 +66,7 @@ class FakeProvider(BaseHTTPRequestHandler):
                                     "function": {
                                         "name": candidates[0],
                                         "arguments": json.dumps(
-                                            {"query": "router", "limit": 10}
-                                            if candidates[0] == "skill_search"
-                                            else {"id": "skill-discovery"}
+                                            {"query": "skill", "limit": 10}
                                         ),
                                     },
                                 }
@@ -251,7 +247,7 @@ def verify(args, root):
             for name in names
             if "search" in name.lower() or "skill" in name.lower()
         ]
-        require(discovery, f"No skill router/search tool was sent: {names}")
+        require("skill_search" in names, f"No skill_search tool was sent: {names}")
         followups = FakeProvider.requests[1:]
         require(followups, "Discovery tool call did not produce a follow-up request")
         tool_messages = [
@@ -262,6 +258,12 @@ def verify(args, root):
         require(
             "skill" in result_text.lower(),
             f"Discovery result did not contain router metadata: {result_text}",
+        )
+        results = json.loads(tool_messages[-1]["content"])
+        require(0 < len(results) <= 10, f"Unbounded or empty search result: {results}")
+        require(
+            all(set(entry) == {"id", "name", "description"} for entry in results),
+            "Search returned more than skill metadata",
         )
         evidence = {
             "requests": FakeProvider.requests,

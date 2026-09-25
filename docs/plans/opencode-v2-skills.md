@@ -49,7 +49,7 @@ work and must be preserved.
 
 - Grounding complete. Existing installation targets five applications and writes
   shared discovery directories, producing duplicate sources in V2.
-- Installer replaced and verified with 23 temporary-home tests, including moved
+- Installer replaced and verified with 26 temporary-home tests, including moved
   checkouts and rollback after link or state-write failures.
 - First-party research and hidden-skill native activation proof recorded in
   `docs/research/opencode-v2-skill-discovery.md`.
@@ -59,4 +59,8 @@ work and must be preserved.
   runtime check.
 - Model discovery now supports V2 only. All 27 tests and the isolated live
   discovery and inference check pass.
-- Captured model-request verification and final independent review are pending.
+- A local fake provider captured the outgoing request and exercised `skill_search`.
+  Hidden descriptions were absent, and the tool returned at most ten metadata-only
+  results. The search tool is explicitly available outside Code Mode.
+- Independent review findings on migration ownership are fixed. Browser-rendered
+  OpenChamber interaction and native permission prompts were not exercised.

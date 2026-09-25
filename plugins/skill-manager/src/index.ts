@@ -32,6 +32,7 @@ export default Plugin.define({
 				description:
 					"Search skill metadata by keywords or exact ID. At most 10 results per page. Metadata is not permission-filtered; use native skill(id) to load under OpenCode permissions.",
 				input: searchInput,
+				options: { codemode: false },
 				execute: async (input) => {
 					const current = await ctx.skill.list();
 					const managed = new Map(

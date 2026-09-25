@@ -113,3 +113,6 @@ Run `python3 scripts/verify-skill-manager.py --keep` for an isolated installatio
 and native loading check against your installed V2 executable. It records the
 registry and activation evidence under `/tmp/opencode`, then stops its private
 server.
+
+Run `python3 scripts/verify-skill-context.py --keep` to capture the actual model
+request and exercise bounded search against a local fake provider.

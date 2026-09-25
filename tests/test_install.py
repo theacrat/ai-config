@@ -102,6 +102,22 @@ class InstallerTest(unittest.TestCase):
         self.assertFalse(self.home.exists())
         self.assertFalse(self.paths.backup_root.exists())
 
+    def test_migrates_exact_managed_plugin_skill_links(self) -> None:
+        links = []
+        for plugin, name in (
+            ("cloudflare", "wrangler"),
+            ("1password", "1password-environments"),
+        ):
+            source = self.checkout / "plugins" / plugin / "skills" / name
+            self.write(source / "SKILL.md", name)
+            links.append(self.link(self.home / ".agents/skills" / name, source))
+        self.state({"version": 1, "managed_paths": [str(link) for link in links]})
+        self.assertEqual(self.run_install(), 0)
+        for link in links:
+            self.assertFalse(link.is_symlink())
+            self.assertIn(str(link), self.backups())
+        self.assertEqual(self.check(), 0)
+
     def test_v1_migration_backs_up_visible_links_preserves_other_apps(self) -> None:
         visible = [
             self.link(root / "example", self.checkout / "skills/example")

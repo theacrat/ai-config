@@ -172,7 +172,15 @@ def selected_skill_targets(paths: Paths) -> set[Path]:
         paths.data_root / "pstack",
         paths.checkout / "plugins/pstack/pstack",
     }
-    for root in (paths.checkout / "skills", paths.checkout / "personal/skills"):
+    for relative in (
+        "skills",
+        "personal/skills",
+        "plugins/cloudflare/skills",
+        "plugins/1password/skills",
+    ):
+        root = paths.checkout / relative
+        if not root.is_dir():
+            continue
         for entry in root.iterdir():
             if (entry / "SKILL.md").is_file():
                 targets.update((entry, entry.resolve()))
