@@ -5,19 +5,23 @@ import argparse
 import json
 import re
 import subprocess
+import tempfile
 import time
 from pathlib import Path
 
 
 def request(binary, path):
-    result = subprocess.run(
-        [binary, "api", "get", path],
-        capture_output=True,
-        text=True,
-        check=True,
-        timeout=90,
-    )
-    return json.loads(result.stdout)["data"]
+    with tempfile.TemporaryFile(mode="w+") as output:
+        subprocess.run(
+            [binary, "api", "get", path],
+            stdout=output,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=True,
+            timeout=90,
+        )
+        output.seek(0)
+        return json.load(output)["data"]
 
 
 def main():
