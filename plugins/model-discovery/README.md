@@ -27,21 +27,21 @@ Use an absolute path to the built `dist` directory in your `opencode.jsonc`:
 
 ```jsonc
 {
-  "$schema": "https://opencode.ai/config.json",
-  "plugins": [
-    {
-      "package": "/absolute/path/ai-config/plugins/model-discovery/dist",
-      "options": {
-        "sources": [
-          {
-            "id": "compatible",
-            "baseURL": "https://llm.example.com/v1",
-            "apiKeyEnv": "MODEL_API_KEY",
-          },
-        ],
-      },
-    },
-  ],
+	"$schema": "https://opencode.ai/config.json",
+	"plugins": [
+		{
+			"package": "/absolute/path/ai-config/plugins/model-discovery/dist",
+			"options": {
+				"sources": [
+					{
+						"id": "compatible",
+						"baseURL": "https://llm.example.com/v1",
+						"apiKeyEnv": "MODEL_API_KEY",
+					},
+				],
+			},
+		},
+	],
 }
 ```
 
@@ -59,54 +59,54 @@ The plugin uses that variable only when native options are absent or an empty ob
 
 ```ts
 type Options = {
-  sources: Array<{
-    id: string;
-    baseURL: string;
-    apiKeyEnv?: string;
-    modelsURL?: string;
-    discovery?: boolean;
-    models?: Array<
-      | string
-      | {
-          id: string;
-          name?: string;
-          context?: number;
-          output?: number;
-          tools?: boolean;
-          reasoning?: boolean;
-          cost?: {
-            input: number;
-            output: number;
-            cache_read?: number;
-            cache_write?: number;
-            context_over_200k?: {
-              input: number;
-              output: number;
-              cache_read?: number;
-              cache_write?: number;
-            };
-          };
-          release_date?: string;
-          attachment?: boolean;
-          temperature?: boolean;
-          status?: "alpha" | "beta" | "deprecated" | "active";
-          modalities?: {
-            input?: Array<"text" | "audio" | "image" | "video" | "pdf">;
-            output?: Array<"text" | "audio" | "image" | "video" | "pdf">;
-          };
-          reasoning_options?: Array<{
-            type: "effort";
-            values: string[];
-          }>;
-        }
-    >;
-    timeoutMs?: number;
-    defaults?: {
-      context?: number;
-      output?: number;
-      tools?: boolean;
-    };
-  }>;
+	sources: Array<{
+		id: string;
+		baseURL: string;
+		apiKeyEnv?: string;
+		modelsURL?: string;
+		discovery?: boolean;
+		models?: Array<
+			| string
+			| {
+					id: string;
+					name?: string;
+					context?: number;
+					output?: number;
+					tools?: boolean;
+					reasoning?: boolean;
+					cost?: {
+						input: number;
+						output: number;
+						cache_read?: number;
+						cache_write?: number;
+						context_over_200k?: {
+							input: number;
+							output: number;
+							cache_read?: number;
+							cache_write?: number;
+						};
+					};
+					release_date?: string;
+					attachment?: boolean;
+					temperature?: boolean;
+					status?: "alpha" | "beta" | "deprecated" | "active";
+					modalities?: {
+						input?: Array<"text" | "audio" | "image" | "video" | "pdf">;
+						output?: Array<"text" | "audio" | "image" | "video" | "pdf">;
+					};
+					reasoning_options?: Array<{
+						type: "effort";
+						values: string[];
+					}>;
+			  }
+		>;
+		timeoutMs?: number;
+		defaults?: {
+			context?: number;
+			output?: number;
+			tools?: boolean;
+		};
+	}>;
 };
 ```
 
@@ -133,24 +133,24 @@ Any OpenAI-compatible inference endpoint can be configured, including servers wi
 
 ```json
 {
-  "sources": [
-    {
-      "id": "compatible",
-      "baseURL": "https://llm.example.com/v1",
-      "apiKeyEnv": "MODEL_API_KEY",
-      "discovery": false,
-      "models": [
-        "organisation/coder",
-        {
-          "id": "another-model",
-          "name": "Another model",
-          "context": 65536,
-          "output": 8192,
-          "tools": false
-        }
-      ]
-    }
-  ]
+	"sources": [
+		{
+			"id": "compatible",
+			"baseURL": "https://llm.example.com/v1",
+			"apiKeyEnv": "MODEL_API_KEY",
+			"discovery": false,
+			"models": [
+				"organisation/coder",
+				{
+					"id": "another-model",
+					"name": "Another model",
+					"context": 65536,
+					"output": 8192,
+					"tools": false
+				}
+			]
+		}
+	]
 }
 ```
 
@@ -164,19 +164,21 @@ When discovery is enabled, the endpoint must return a JSON object with a `data` 
 
 ```json
 {
-  "data": [
-    {
-      "id": "organisation/coder",
-      "name": "Coder",
-      "context_length": 65536,
-      "max_output_tokens": 8192,
-      "supports_tools": true,
-      "modalities": { "input": ["text", "image"], "output": ["text"] },
-      "reasoning": true,
-      "reasoning_options": [{ "type": "effort", "values": ["low", "medium", "high"] }]
-    },
-    { "id": "another-model", "object": "model", "owned_by": "local" }
-  ]
+	"data": [
+		{
+			"id": "organisation/coder",
+			"name": "Coder",
+			"context_length": 65536,
+			"max_output_tokens": 8192,
+			"supports_tools": true,
+			"modalities": { "input": ["text", "image"], "output": ["text"] },
+			"reasoning": true,
+			"reasoning_options": [
+				{ "type": "effort", "values": ["low", "medium", "high"] }
+			]
+		},
+		{ "id": "another-model", "object": "model", "owned_by": "local" }
+	]
 }
 ```
 

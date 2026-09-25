@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import re
 import subprocess
 import time
 from pathlib import Path
@@ -24,7 +25,7 @@ def main():
     parser.add_argument("--opencode", default="opencode")
     args = parser.parse_args()
     version = subprocess.check_output([args.opencode, "--version"], text=True)
-    if not version.strip().startswith("opencode v2."):
+    if re.fullmatch(r"opencode v2\.\S+", version.strip()) is None:
         raise SystemExit(f"OpenCode V2 required, found {version.strip()}")
     root = Path(__file__).resolve().parents[1]
     deadline = time.monotonic() + 30

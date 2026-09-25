@@ -205,7 +205,6 @@ def verify(args, root):
     subprocess.run(["git", "init", "--quiet", str(project)], env=env, check=True)
     with v2_server(args.opencode, root, env) as request:
         registry = catalogue(request, project, args.plugin_id)
-        # Source paths, not all native/builtin entries, define the measured set.
         managed = [
             s for s in registry if Path(s["path"]).resolve().is_relative_to(checkout)
         ]
