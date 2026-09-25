@@ -17,6 +17,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -46,9 +47,9 @@ class FakeProvider(BaseHTTPRequestHandler):
         if FakeProvider.calls == 1:
             tools = body.get("tools", [])
             names = [tool.get("function", {}).get("name", "") for tool in tools]
-            candidates = [name for name in names if "search" in name.lower()]
+            candidates = [name for name in names if name == "skill_search"]
             if not candidates:
-                candidates = [name for name in names if "skill" in name.lower()]
+                candidates = [name for name in names if name == "skill"]
             require(candidates, f"No skill discovery tool in outgoing tools: {names}")
             reply = {
                 "id": "context-proof-call",
@@ -66,7 +67,11 @@ class FakeProvider(BaseHTTPRequestHandler):
                                     "type": "function",
                                     "function": {
                                         "name": candidates[0],
-                                        "arguments": json.dumps({"query": "router"}),
+                                        "arguments": json.dumps(
+                                            {"query": "router", "limit": 10}
+                                            if candidates[0] == "skill_search"
+                                            else {"id": "skill-discovery"}
+                                        ),
                                     },
                                 }
                             ],
@@ -89,12 +94,34 @@ class FakeProvider(BaseHTTPRequestHandler):
                     }
                 ],
             }
-        encoded = json.dumps(reply).encode()
         self.send_response(200)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(encoded)))
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Connection", "close")
         self.end_headers()
-        self.wfile.write(encoded)
+        choice = reply["choices"][0]
+        delta = choice["message"]
+        chunks = [
+            {
+                "id": reply["id"],
+                "object": "chat.completion.chunk",
+                "created": 1,
+                "model": FakeProvider.model,
+                "choices": [{"index": 0, "delta": delta, "finish_reason": None}],
+            },
+            {
+                "id": reply["id"],
+                "object": "chat.completion.chunk",
+                "created": 1,
+                "model": FakeProvider.model,
+                "choices": [
+                    {"index": 0, "delta": {}, "finish_reason": choice["finish_reason"]}
+                ],
+            },
+        ]
+        for chunk in chunks:
+            self.wfile.write(f"data: {json.dumps(chunk)}\n\n".encode())
+        self.wfile.write(b"data: [DONE]\n\n")
+        self.wfile.flush()
 
 
 @contextmanager
@@ -139,7 +166,7 @@ def verify(args, root):
     with fake_provider() as base_url:
         config = {
             "plugins": [{"package": str(plugin)}],
-            "providers": {
+            "provider": {
                 "context-proof": {
                     "npm": "@ai-sdk/openai-compatible",
                     "name": "Local context proof",
@@ -160,7 +187,9 @@ def verify(args, root):
                 if Path(s.get("path", "")).resolve().is_relative_to(checkout)
             ]
             descriptions = [
-                s.get("description", "") for s in managed if s.get("description")
+                s.get("description", "")
+                for s in managed
+                if s.get("description") and s.get("autoinvoke") is False
             ]
             require(managed, "No managed skills were registered")
             session = request(
@@ -170,26 +199,33 @@ def verify(args, root):
                     "title": "skill context verification",
                     "model": {
                         "providerID": "context-proof",
-                        "modelID": FakeProvider.model,
+                        "id": FakeProvider.model,
                     },
                     "location": {"directory": str(project)},
                 },
             )["data"]
             session_id = session["id"]
-            result = request(
+            request(
                 f"/api/session/{session_id}/prompt",
                 project,
-                {
-                    "parts": [{"type": "text", "text": "Find the router skill."}],
-                    "model": {
-                        "providerID": "context-proof",
-                        "modelID": FakeProvider.model,
-                    },
-                },
+                {"text": "Find the router skill."},
             )
+            status = None
+            for _ in range(60):
+                status = request(f"/api/session/{session_id}", project)
+                if status["data"].get("outcome"):
+                    break
+                time.sleep(0.25)
+            if not status or status["data"].get("outcome") != "succeeded":
+                messages = request(f"/api/session/{session_id}/message", project)
+                raise RuntimeError(
+                    f"Prompt did not complete: {status}; messages: {messages}; "
+                    f"provider requests: {FakeProvider.requests}"
+                )
+            context = request(f"/api/session/{session_id}/context", project)
             require(
-                "CONTEXT_PROOF_OK" in json.dumps(result),
-                f"Prompt did not complete: {result}",
+                "CONTEXT_PROOF_OK" in json.dumps(context),
+                f"Prompt output missing: {context}",
             )
         require(FakeProvider.requests, "Fake provider received no request")
         first = FakeProvider.requests[0]
@@ -224,7 +260,7 @@ def verify(args, root):
         require(tool_messages, "Follow-up omitted the discovery tool result")
         result_text = json.dumps(tool_messages)
         require(
-            "router" in result_text.lower(),
+            "skill" in result_text.lower(),
             f"Discovery result did not contain router metadata: {result_text}",
         )
         evidence = {
