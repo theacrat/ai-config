@@ -182,7 +182,7 @@ def verify(args, root):
     version = subprocess.check_output(
         [args.opencode, "--version"], env=env, text=True
     ).strip()
-    require("2." in version, f"Expected OpenCode V2, got {version}")
+    require(version.startswith("opencode v2."), f"Expected OpenCode V2, got {version}")
     result = subprocess.run(
         [str(checkout / "install.sh")],
         cwd=checkout,
