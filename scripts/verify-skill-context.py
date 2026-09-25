@@ -262,7 +262,10 @@ def verify(args, root):
         results = json.loads(tool_messages[-1]["content"])
         require(0 < len(results) <= 10, f"Unbounded or empty search result: {results}")
         require(
-            all(set(entry) == {"id", "name", "description"} for entry in results),
+            all(
+                set(entry) <= {"id", "name", "description", "group"}
+                for entry in results
+            ),
             "Search returned more than skill metadata",
         )
         evidence = {

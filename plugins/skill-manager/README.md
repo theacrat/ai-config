@@ -5,11 +5,34 @@ entries and skills from personal, pstack, 1Password and Cloudflare source direct
 Manifest names are canonical IDs, including aliases whose upstream folders differ.
 Original absolute `SKILL.md` paths preserve native relative-resource loading.
 
-Only `skill-discovery` and enabled `thea-mode` advertise automatically. All other
-managed skills remain registered with `autoinvoke: false`, so native explicit ID
-loading and OpenChamber's skill/slash catalogue remain available. The discovery
-guide directs the agent to load personal guidance and its required skills natively.
-This is an instruction to the model, not guaranteed automatic execution.
+Only `skill-discovery` and enabled `thea-mode` advertise everywhere. All other
+managed skills are sectioned into groups and advertise only in projects where
+their section is relevant, so native explicit ID loading and OpenChamber's
+skill/slash catalogue remain available without bloating every prompt. The
+discovery guide directs the agent to load personal guidance and its required
+skills natively. This is an instruction to the model, not guaranteed automatic
+execution.
+
+## Skill sections
+
+Each managed skill belongs to one group, derived from its source root:
+
+| Group         | Sources                                         |
+| ------------- | ----------------------------------------------- |
+| `cloudflare`  | `plugins/cloudflare/skills`                     |
+| `1password`   | `plugins/1password/skills`                      |
+| `engineering` | mattpocock skills via `sources.json`            |
+| `frontend`    | anthropics and vercel skills via `sources.json` |
+| `testing`     | trailofbits skills via `sources.json`           |
+| `workflow`    | pstack skills                                   |
+| `personal`    | `personal/skills`                               |
+
+A project's relevant sections are detected from its files: `wrangler.toml`
+selects `cloudflare`, `package.json` dependencies select `cloudflare` or
+`frontend`, `.env` selects `1password`, and so on. To force sections for a
+project, create `.opencode/skill-groups.json` with
+`{"groups": ["cloudflare"]}` using any of the names above; it unions with
+auto-detection. Sections refresh with the catalogue every 30 seconds.
 
 ## Installation contract
 
@@ -32,7 +55,9 @@ the source file field `path`; the current guide's `location` example is outdated
 
 ## Search and permissions
 
-`skill_search` requires a query and accepts `offset` and `limit` with a maximum of 10. Results contain only exact ID, display name and description. Display names
+`skill_search` requires a query and accepts `offset`, `limit` with a maximum of 10,
+and an optional `group` filter using one of the section names above. Results
+contain only exact ID, group, display name and description. Display names
 and descriptions are capped at 120 and 500 characters. IDs are never truncated.
 The tool searches only current managed definitions; external overrides and other
 project/user skill metadata are excluded.

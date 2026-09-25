@@ -49,8 +49,10 @@ def main():
             "service, and open this checkout in OpenChamber before checking."
         )
     advertised = [skill["id"] for skill in managed if skill.get("autoinvoke", True)]
-    if len(advertised) > 2:
-        raise SystemExit(f"Unbounded managed catalogue: {advertised}")
+    bootstraps = {"skill-discovery", "thea-mode"}
+    grouped = len([i for i in advertised if i not in bootstraps])
+    if grouped > 30:
+        raise SystemExit(f"Unbounded section advertisement: {advertised}")
     ids = {skill["id"] for skill in skills}
     if "skill-discovery" not in ids:
         raise SystemExit("The skill discovery entry is missing.")

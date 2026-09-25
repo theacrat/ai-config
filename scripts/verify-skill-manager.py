@@ -219,7 +219,32 @@ def verify(args, root):
         ]
         require(
             len(advertised) <= 2,
-            f"Managed advertisement grew: {[s['id'] for s in advertised]}",
+            f"Bare project advertises more than bootstraps: {[s['id'] for s in advertised]}",
+        )
+        cloud = root / "cloudflare-project"
+        cloud.mkdir()
+        subprocess.run(["git", "init", "--quiet", str(cloud)], env=env, check=True)
+        (cloud / "wrangler.toml").write_text('name = "group-proof"\n')
+        grouped = catalogue(request, cloud, args.plugin_id)
+        cloud_managed = [
+            s for s in grouped if Path(s["path"]).resolve().is_relative_to(checkout)
+        ]
+        by_path = {s["id"]: s for s in cloud_managed}
+        require(bool(by_path), "Cloudflare project registered no managed skills")
+        require(
+            any(
+                "cloudflare" in s["path"] and s.get("autoinvoke") is not False
+                for s in cloud_managed
+            ),
+            "Cloudflare section did not advertise in a wrangler project",
+        )
+        require(
+            all(
+                s.get("autoinvoke") is False
+                for s in cloud_managed
+                if "1password" in s["path"]
+            ),
+            "1password section leaked into a cloudflare project",
         )
         hidden = [
             s
@@ -268,6 +293,9 @@ def verify(args, root):
             "version": version,
             "managed": len(managed),
             "advertised": [s["id"] for s in advertised],
+            "cloudflare_advertised": sorted(
+                s["id"] for s in cloud_managed if s.get("autoinvoke") is not False
+            ),
             "native_load": skill["id"],
             "source": skill["path"],
             "support": str(support),

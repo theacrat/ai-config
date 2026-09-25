@@ -13,9 +13,13 @@ import type { SkillEditor } from "@opencode/plugin/promise/skill";
 import {
 	applyCatalogue,
 	checkoutRoot,
+	detectRelevantGroups,
+	groupFor,
 	loadCatalogue,
 	managedPaths,
 	parseSkill,
+	readGroupOverrides,
+	relevantGroups,
 	searchCatalogue,
 } from "../src/manager";
 
@@ -253,6 +257,115 @@ describe("native catalogue", () => {
 		mkdirSync(join(root, "plugins/skill-manager"), { recursive: true });
 		symlinkSync(join(root, "plugins/skill-manager"), join(root, "ai-config"));
 		expect(checkoutRoot(join(root, "ai-config"))).toBe(root);
+	});
+});
+describe("skill groups", () => {
+	it("tags catalogue sections by source root", () => {
+		const root = fixture();
+		expect(
+			groupFor(root, join(root, "plugins/cloudflare/skills/wrangler/SKILL.md")),
+		).toBe("cloudflare");
+		expect(
+			groupFor(root, join(root, "plugins/1password/skills/x/SKILL.md")),
+		).toBe("1password");
+		expect(groupFor(root, join(root, "personal/skills/mine/SKILL.md"))).toBe(
+			"personal",
+		);
+		expect(
+			groupFor(root, join(root, "sources/mattpocock-skills/skills/a/SKILL.md")),
+		).toBe("engineering");
+		expect(
+			groupFor(
+				root,
+				join(root, "sources/vercel-agent-skills/skills/b/SKILL.md"),
+			),
+		).toBe("frontend");
+		expect(
+			groupFor(
+				root,
+				join(root, "sources/trailofbits-skills/plugins/c/SKILL.md"),
+			),
+		).toBe("testing");
+		expect(
+			groupFor(root, join(root, "plugins/pstack/pstack/skills/d/SKILL.md")),
+		).toBe("workflow");
+	});
+	it("detects project signals and honours explicit overrides", () => {
+		const root = fixture();
+		const project = join(root, "project");
+		mkdirSync(project, { recursive: true });
+		expect(detectRelevantGroups(project).size).toBe(0);
+		writeFileSync(join(project, "wrangler.toml"), 'name = "x"');
+		expect(detectRelevantGroups(project).has("cloudflare")).toBe(true);
+		writeFileSync(
+			join(project, "package.json"),
+			JSON.stringify({ dependencies: { react: "1" } }),
+		);
+		expect(detectRelevantGroups(project).has("frontend")).toBe(true);
+		expect(readGroupOverrides(project).size).toBe(0);
+		write(
+			root,
+			"project/.opencode/skill-groups.json",
+			JSON.stringify({ groups: ["1password"] }),
+		);
+		expect(readGroupOverrides(project)).toEqual(new Set(["1password"]));
+		expect(relevantGroups(project)).toEqual(
+			new Set(["cloudflare", "frontend", "1password"]),
+		);
+	});
+	it("advertises only relevant groups while keeping the rest loadable", () => {
+		const root = fixture();
+		const cloud = write(
+			root,
+			"plugins/cloudflare/skills/wrangler/SKILL.md",
+			"---\nname: Wrangler\ndescription: Deploy workers\n---\nBody",
+		);
+		const secret = write(
+			root,
+			"plugins/1password/skills/vault/SKILL.md",
+			"---\nname: Vault\ndescription: Manage secrets\n---\nBody",
+		);
+		const entries = loadCatalogue(root);
+		const { editor, values } = editorFor();
+		applyCatalogue(
+			editor,
+			entries,
+			new Set(managedPaths(entries, root, join(root, "legacy"))),
+			root,
+			new Set(["cloudflare"]),
+		);
+		expect(values.get("wrangler")?.autoinvoke).toBe(true);
+		expect(values.get("vault")?.autoinvoke).toBe(false);
+		expect(values.get("vault")?.content).toBe("Body");
+		expect(cloud).toBeDefined();
+		expect(secret).toBeDefined();
+	});
+	it("filters search results by group", () => {
+		const rows = [
+			{
+				id: "wrangler",
+				name: "Wrangler",
+				description: "deploy workers",
+				group: "cloudflare",
+			},
+			{
+				id: "vault",
+				name: "Vault",
+				description: "deploy secrets",
+				group: "1password",
+			},
+		];
+		expect(
+			searchCatalogue(rows, { query: "deploy", group: "cloudflare" }),
+		).toEqual([
+			{
+				id: "wrangler",
+				name: "Wrangler",
+				description: "deploy workers",
+				group: "cloudflare",
+			},
+		]);
+		expect(searchCatalogue(rows, { query: "deploy" })).toHaveLength(2);
 	});
 });
 describe("metadata search", () => {
