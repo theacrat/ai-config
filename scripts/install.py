@@ -167,32 +167,43 @@ def safe_parent(paths: Paths, path: Path) -> bool:
     return False
 
 
-def owned_skill_target(paths: Paths, target: Path | None) -> bool:
-    if target is None or not target.is_absolute() or ".." in target.parts:
-        return False
-    roots = (
-        paths.checkout / "skills",
-        paths.checkout / "personal/skills",
-        paths.checkout / "sources",
-        paths.checkout / "plugins",
+def selected_skill_targets(paths: Paths) -> set[Path]:
+    targets = {
         paths.data_root / "pstack",
-    )
-    return any(target.is_relative_to(root) for root in roots)
+        paths.checkout / "plugins/pstack/pstack",
+    }
+    for root in (paths.checkout / "skills", paths.checkout / "personal/skills"):
+        for entry in root.iterdir():
+            if (entry / "SKILL.md").is_file():
+                targets.update((entry, entry.resolve()))
+    manifest = paths.checkout / "sources.json"
+    if manifest.is_file():
+        try:
+            document = json.loads(manifest.read_text(encoding="utf-8"))
+            for skill in document["skills"]:
+                relative = Path(skill["root"]) / skill["path"]
+                if relative.is_absolute() or ".." in relative.parts:
+                    raise ValueError("source path must remain within the checkout")
+                targets.add(paths.checkout / relative)
+        except (ValueError, KeyError, TypeError) as exc:
+            raise InstallError(f"invalid skill source manifest: {manifest}") from exc
+    return targets
 
 
 def migration_entries(
     paths: Paths, prior: dict[Path, Path | None], names: set[str]
 ) -> dict[Path, bool]:
     result: dict[Path, bool] = {}
+    targets = selected_skill_targets(paths)
     for root in paths.visible_skill_roots:
         if not safe_parent(paths, root / "entry") or not root.is_dir():
             continue
         for entry in root.iterdir():
             target = link_target(entry)
             recorded = prior.get(entry)
-            if recorded is not None and owned_skill_target(paths, recorded):
+            if recorded in targets:
                 result[entry] = target == recorded
-            elif owned_skill_target(paths, target):
+            elif target in targets:
                 result[entry] = True
             elif entry in prior and (entry.name in names or entry.name == "pstack"):
                 result[entry] = False

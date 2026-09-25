@@ -180,6 +180,49 @@ class InstallerTest(unittest.TestCase):
         )
         self.assertIn(str(old), self.backups())
 
+    def test_unselected_repo_skill_links_are_preserved(self) -> None:
+        links = []
+        for root in ("plugins/unrelated-project", "sources/unselected"):
+            source = self.checkout / root / "skills/custom"
+            self.write(source / "SKILL.md", "user selected")
+            destination = self.home / ".agents/skills" / root.split("/")[-1]
+            links.append(self.link(destination, source))
+        self.run_install(True)
+        for path in links:
+            self.assertTrue(path.is_symlink())
+            self.assertEqual((path / "SKILL.md").read_text(), "user selected")
+        self.assertEqual(self.backups(), {})
+        self.assertEqual(self.check(), 0)
+
+    def test_manifest_selected_and_resolved_skill_links_are_migrated(self) -> None:
+        source = self.checkout / "sources/selected/skills/example"
+        self.write(source / "SKILL.md", "selected")
+        self.link(self.checkout / "skills/alias", source)
+        resolved = self.link(self.home / ".agents/skills/alias", source)
+        manifest_source = self.checkout / "plugins/selected/skills/manifest-skill"
+        self.write(manifest_source / "SKILL.md", "manifest skill")
+        self.write(
+            self.checkout / "sources.json",
+            json.dumps(
+                {
+                    "skills": [
+                        {
+                            "name": "manifest-skill",
+                            "root": "plugins/selected",
+                            "path": "skills/manifest-skill",
+                        }
+                    ]
+                }
+            ),
+        )
+        selected = self.link(
+            self.home / ".claude/skills/manifest-skill", manifest_source
+        )
+        self.run_install()
+        self.assertEqual(set(self.backups()), {str(resolved), str(selected)})
+        self.assertTrue((source / "SKILL.md").is_file())
+        self.assertTrue((manifest_source / "SKILL.md").is_file())
+
     def test_changed_v2_registration_requires_replace(self) -> None:
         self.run_install()
         destination = next(iter(self.paths.links))
@@ -323,7 +366,7 @@ class InstallerTest(unittest.TestCase):
         self.run_install()
         self.link(
             self.home / ".agents/skills/removed",
-            self.checkout / "sources/deleted/skill",
+            self.checkout / "skills/example",
         )
         before = self.snapshot()
         self.assertEqual(self.check(), 1)
@@ -340,9 +383,7 @@ class InstallerTest(unittest.TestCase):
         self.state(
             {
                 "version": 2,
-                "managed_links": {
-                    str(path): str(self.checkout / "sources/retired/skill")
-                },
+                "managed_links": {str(path): str(self.checkout / "skills/example")},
             }
         )
         before = self.snapshot()
