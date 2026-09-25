@@ -1,0 +1,38 @@
+{
+  "name": "opencode-skill-manager",
+  "version": "0.1.0",
+  "private": true,
+  "files": [
+    "index.ts",
+    "dist",
+    "README.md"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "rm -rf dist && bun build src/index.ts --outdir dist --target bun --packages external && tsc --emitDeclarationOnly",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json",
+    "lint": "oxlint index.ts src tests",
+    "format": "oxfmt --write index.ts src tests package.json tsconfig.json tsconfig.test.json README.md",
+    "format:check": "oxfmt --check index.ts src tests package.json tsconfig.json tsconfig.test.json README.md",
+    "check": "bun run typecheck && bun run lint && bun run format:check && bun run test && bun run build"
+  },
+  "dependencies": {
+    "@opencode/plugin": "2.0.16",
+    "yaml": "2.9.1",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/bun": "1.4.2",
+    "oxfmt": "0.70.0",
+    "oxlint": "1.85.0",
+    "typescript": "7.0.2",
+    "vitest": "5.0.1"
+  },
+  "packageManager": "bun@1.4.2"
+}
