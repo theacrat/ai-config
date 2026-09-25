@@ -1,6 +1,8 @@
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { randomBytes } from "node:crypto";
+import { readFailed } from "../src/controller";
+import { providers } from "../src/providers";
 import { snapshotSchema, hasQuotaSignals } from "../src/snapshot";
 
 const reservation = createServer();
@@ -70,7 +72,7 @@ try {
   const snapshot = snapshotSchema.parse(await response.json());
   if (
     snapshot.accounts.some(
-      (a) => ["codex", "antigravity"].includes(a.provider) && a.live?.status !== "fresh",
+      (a) => providers.has(a.provider) && a.live?.status === "error" && a.live.error === readFailed,
     )
   )
     throw new Error("live-quota-failed");
@@ -85,12 +87,12 @@ try {
         providerCount: new Set(snapshot.accounts.map((a) => a.provider)).size,
         liveFresh: snapshot.accounts.filter((a) => a.live?.status === "fresh").length,
         liveFailed: snapshot.accounts.filter((a) => a.live?.status === "error").length,
-        codexFresh: snapshot.accounts.filter(
-          (a) => a.provider === "codex" && a.live?.status === "fresh",
-        ).length,
-        antigravityFresh: snapshot.accounts.filter(
-          (a) => a.provider === "antigravity" && a.live?.status === "fresh",
-        ).length,
+        freshByProvider: Object.fromEntries(
+          [...providers.keys()].map((id) => [
+            id,
+            snapshot.accounts.filter((a) => a.provider === id && a.live?.status === "fresh").length,
+          ]),
+        ),
         liveWindows: snapshot.accounts.reduce(
           (sum, a) => sum + (a.live?.observation?.windows.length ?? 0),
           0,

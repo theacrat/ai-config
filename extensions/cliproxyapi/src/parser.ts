@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { object, providerId } from "./providers/shared";
 import {
   authIndexSchema,
   healthSchema,
@@ -8,12 +8,7 @@ import {
   type Snapshot,
 } from "./snapshot";
 
-const objectSchema = z.record(z.string(), z.unknown());
-function object(value: unknown): Record<string, unknown> {
-  const parsed = objectSchema.safeParse(value);
-  return parsed.success ? parsed.data : {};
-}
-export function date(value: unknown): number | null {
+function date(value: unknown): number | null {
   if (typeof value !== "string" || !/^\d{4}-\d\d-\d\dT/.test(value)) return null;
   const parsed = Date.parse(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
@@ -148,20 +143,7 @@ export function parseSnapshot(value: unknown, fetchedAt = Date.now()): Snapshot 
       continue;
     }
     ids.add(index.data);
-    const providerResult = z
-      .enum([
-        "codex",
-        "claude",
-        "gemini",
-        "antigravity",
-        "qwen",
-        "iflow",
-        "kimi",
-        "vertex",
-        "openai-compatibility",
-      ])
-      .safeParse(entry.provider);
-    const provider = providerResult.success ? providerResult.data : "other";
+    const provider = providerId(entry.provider);
     const models = Object.entries(object(entry.model_quotas));
     const rawCooldowns = Array.isArray(entry.cooldowns) ? entry.cooldowns : null;
     let cooldowns: Account["cooldowns"] = rawCooldowns === null ? null : [];

@@ -124,3 +124,23 @@ failure returns `success-refresh-failed`; unknown transport outcomes return
 `uncertain` without retry. The test upstream exercises both cases and duplicate
 submissions. Real verification returned four fresh accounts (3 Codex, 1
 Antigravity), eight live windows, and three known bank counts without mutations.
+
+## Provider registry
+
+Every provider the official management centre can query now has a live reader.
+`src/providers/index.ts` maps a normalised CPA provider id to a `Provider` with
+`read` and, for Codex only, `consumeReset`. Each reader receives a context bound
+to one account: `call` for CPA's `api-call`, and `download` for the private auth
+file. Readers turn provider payloads into `Reading[]`, which `observe` clamps and
+bounds into the shared `Observation`. The controller, action path and panel no
+longer name providers; bank-reset support comes from the registry and the
+presence of bank data.
+
+A `LiveError` carries a fixed, panel-safe message for provider-specific failures
+such as a missing Antigravity project or Meta DCA token. Any other failure shows
+the generic stale label. Meta's DCA token is read from CPA's auth-file download
+per request and stays inside the service.
+
+Real verification after this change returned three fresh accounts (Codex,
+Antigravity and Claude) with seven live windows. Kimi, Devin, Meta and xAI were
+verified against the management centre's payload shapes with a fake CPA.

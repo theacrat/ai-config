@@ -1,6 +1,8 @@
 # CLIProxyAPI quota panel for OpenChamber
 
-A standalone panel and full-page view for live Codex and Antigravity quotas,
+A standalone panel and full-page view for live quotas from every OAuth provider
+CPA's management centre can query (Codex, Antigravity, Claude, Kimi, Devin, Meta
+and xAI),
 account controls, saved CPA observations, and cooldowns. Requires OpenChamber 1.24.2 or later
 on desktop or web. VS Code and mobile do not run guest local services.
 
@@ -55,9 +57,13 @@ Account errors and active cooldowns stay visible.
   30%, matching CPA's thresholds. Zero is a real measurement. Missing or invalid
   measurements display as unknown. Live and passive Codex primary, secondary,
   additional, and code-review windows are decoded, along with observed
-  allowed/limit-reached flags, active-limit attribution, and credits. Other providers
-  retain their saved readings. Antigravity groups show percent remaining, computed from
-  remaining fractions, with group descriptions and reset times.
+  allowed/limit-reached flags, active-limit attribution, and credits. Antigravity
+  groups show percent remaining, computed from remaining fractions, with group
+  descriptions and reset times. Claude shows its 5-hour, 7-day, model-scoped and
+  extra-usage windows. Kimi, Devin and Meta show their rolling and weekly windows.
+  xAI shows weekly credits with per-product usage, or monthly and on-demand spend.
+  Providers without a quota endpoint (Qwen, Gemini, Vertex, iFlow and API keys)
+  retain their saved readings.
 - Saved observation times come from CPA's `quota.observed_at`. Relative resets are
   anchored to that timestamp, never to the most recent refresh. Observations older
   than 15 minutes display as stale. A passed reset time does not imply replenished
@@ -78,9 +84,13 @@ Account errors and active cooldowns stay visible.
 - **Refresh** queries live provider quotas through CPA's management `api-call`.
   Accounts can succeed or fail independently. Antigravity requires `project_id`
   in the private CPA listing; missing projects produce an account-level error.
+  Meta's quota endpoint needs the credential file's `dca_token`, so the service
+  downloads that file through CPA's management API for each read. The token is
+  used for the one request and never leaves the service. Paid xAI API accounts
+  report no billing quota and show an account-level note.
 - **Enable / Disable** changes the account's CPA status. **Refresh credentials**
   asks CPA to refresh that account's credentials. Raw credentials stay server-side.
-- **Use banked reset** appears for Codex and is enabled when available credits are
+- **Use banked reset** appears for Codex (the only provider with banked resets) and is enabled when available credits are
   greater than zero, even if the applicable count is zero. The panel shows the
   available count and expiry information in its hover text. The reset icon opens
   confirmation beside the account controls. A warning appears when primary quota has at least
@@ -205,8 +215,11 @@ CPA behaviour was derived from its [official source at e01806f](https://github.c
 - `internal/api/handlers/management/auth_files_fields.go`, `auth_files_refresh.go`,
   and `api_tools.go`: account mutations, private refresh results, and provider proxy envelopes.
 - Official `CLIProxyAPI-Management-Center` source: `src/utils/quota/constants.ts`,
-  `resetCredits.ts`, and `src/features/quota/providers/{codex,antigravity}/data.ts`
-  define provider URLs, headers, bank-credit merging, consumption, and fallback order.
+  `resetCredits.ts`, `src/features/quota/providers/*/data.ts`, and
+  `src/services/api/{devin,meta}Quota.ts` at
+  [4530da2](https://github.com/router-for-me/Cli-Proxy-API-Management-Center/tree/4530da271ba2e89810d4dccebc57f3091afa590a)
+  define provider URLs, headers, payload shapes, bank-credit merging, consumption,
+  and fallback order.
   The corresponding MIT notice ships in `licenses/cliproxyapi-management-MIT.txt`.
 
 Host behaviour follows the [official OpenChamber SDK](https://github.com/btriapitsyn/openchamber/tree/0c4fbe362dbbc12af790d29da8afbcb19c910ced/packages/sdk) `API.md`, `GUEST_SERVICES.md`,
