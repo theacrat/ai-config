@@ -104,3 +104,8 @@ bun run check
 `scripts/verify-loaders.py` queries the actual OpenCode V2 registry without making
 a model request. It fails if the managed advertised catalogue grows beyond its
 fixed budget.
+
+Run `python3 scripts/verify-skill-manager.py --keep` for an isolated installation
+and native loading check against your installed V2 executable. It records the
+registry and activation evidence under `/tmp/opencode`, then stops its private
+server.

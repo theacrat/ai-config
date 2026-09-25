@@ -4,7 +4,19 @@
 import argparse
 import json
 import subprocess
+import time
 from pathlib import Path
+
+
+def request(binary, path):
+    result = subprocess.run(
+        [binary, "api", "get", path],
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=90,
+    )
+    return json.loads(result.stdout)["data"]
 
 
 def main():
@@ -14,18 +26,18 @@ def main():
     version = subprocess.check_output([args.opencode, "--version"], text=True)
     if not version.strip().startswith("opencode v2."):
         raise SystemExit(f"OpenCode V2 required, found {version.strip()}")
-    result = subprocess.run(
-        [args.opencode, "api", "get", "/api/skill"],
-        capture_output=True,
-        text=True,
-        check=True,
-        timeout=90,
-    )
-    skills = json.loads(result.stdout)["data"]
     root = Path(__file__).resolve().parents[1]
-    managed = [
-        skill for skill in skills if Path(skill.get("path", "/")).is_relative_to(root)
-    ]
+    deadline = time.monotonic() + 30
+    while True:
+        skills = request(args.opencode, "/api/skill")
+        managed = [
+            skill
+            for skill in skills
+            if Path(skill.get("path", "/")).is_relative_to(root)
+        ]
+        if managed or time.monotonic() >= deadline:
+            break
+        time.sleep(0.2)
     if not managed:
         raise SystemExit(
             "No managed skills loaded. Run ./install.sh, restart the OpenCode "
