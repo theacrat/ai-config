@@ -2,7 +2,7 @@
 
 Load an OpenAI-compatible model catalogue at plugin startup. Each configured source becomes an OpenCode provider. Discovery changes the in-memory model registry; it does not write configuration files.
 
-The default export has `server()` for OpenCode V1 1.18.29+ and `setup()` for V2. It targets `@opencode-ai/plugin` 1.18.32 and `@opencode/plugin` 2.0.14. V1 loads no V2 runtime code.
+The default export is a native OpenCode V2 plugin with `setup()`. It targets `@opencode/plugin` 2.0.14.
 
 ## Build
 
@@ -13,7 +13,7 @@ bun install --frozen-lockfile
 bun run check
 ```
 
-This runs TypeScript checks for source and tests, oxlint, oxfmt, Vitest, and a Bun build with declarations in `dist/`. Tests serve local HTTP endpoints and exercise both adapters. Live host verification is separate from these package tests.
+This runs TypeScript checks for source and tests, oxlint, oxfmt, Vitest, and a Bun build with declarations in `dist/`. Tests serve local HTTP endpoints and exercise the V2 provider transform. Live host verification is separate from these package tests.
 
 To run these checks before committing plugin changes, enable the repository hook from the repository root:
 
@@ -27,109 +27,86 @@ Use an absolute path to the built `dist` directory in your `opencode.jsonc`:
 
 ```jsonc
 {
-  "$schema": "https://opencode.ai/config.json",
-  "plugins": [
-    {
-      "package": "/absolute/path/ai-config/plugins/model-discovery/dist",
-      "options": {
-        "sources": [
-          {
-            "id": "compatible",
-            "baseURL": "https://llm.example.com/v1",
-            "apiKeyEnv": "MODEL_API_KEY",
-          },
-        ],
-      },
-    },
-  ],
+	"$schema": "https://opencode.ai/config.json",
+	"plugins": [
+		{
+			"package": "/absolute/path/ai-config/plugins/model-discovery/dist",
+			"options": {
+				"sources": [
+					{
+						"id": "compatible",
+						"baseURL": "https://llm.example.com/v1",
+						"apiKeyEnv": "MODEL_API_KEY",
+					},
+				],
+			},
+		},
+	],
 }
 ```
 
 Set `MODEL_API_KEY` to your bearer token in the environment of the OpenCode server. Omit `apiKeyEnv` for an unauthenticated server. V2 passes this options object through `ctx.options`.
 
-## Configure V1
-
-V1 1.18.29+ supports the dual object entrypoint and a package/options tuple. Point to the built entrypoint:
-
-```jsonc
-{
-  "$schema": "https://opencode.ai/config.json",
-  "plugin": [
-    [
-      "file:///absolute/path/ai-config/plugins/model-discovery/dist/index.js",
-      {
-        "sources": [
-          {
-            "id": "compatible",
-            "baseURL": "https://llm.example.com/v1",
-            "apiKeyEnv": "MODEL_API_KEY",
-          },
-        ],
-      },
-    ],
-  ],
-}
-```
-
-The tuple's second element is passed directly as the second argument of `server(input, options)`. It is the `{ "sources": [...] }` object, without an additional `options` wrapper.
-
-For a host or loader without native options support, use a plain plugin path and set `OPENCODE_MODEL_DISCOVERY` to JSON:
+You can also set `OPENCODE_MODEL_DISCOVERY` to JSON:
 
 ```sh
 export OPENCODE_MODEL_DISCOVERY='{"sources":[{"id":"compatible","baseURL":"https://llm.example.com/v1","apiKeyEnv":"MODEL_API_KEY"}]}'
 ```
 
-Both entrypoints use that variable only when native options are absent or an empty object. Explicit options replace the environment configuration entirely. `{ "sources": [] }` disables discovery. Invalid options produce a sanitised diagnostic and leave providers unchanged.
-
-### Older V1 releases
-
-Use `dist/legacy.js` for V1 releases before 1.18.29, with the environment configuration above:
-
-```jsonc
-{
-  "$schema": "https://opencode.ai/config.json",
-  "plugin": ["file:///absolute/path/ai-config/plugins/model-discovery/dist/legacy.js"],
-}
-```
-
-The legacy entrypoint is verified on V1 1.2.27. Its `opencode models` command does not initialise plugins; start a normal session to load the discovered catalogue. Earlier V1 releases are not covered.
+The plugin uses that variable only when native options are absent or an empty object. Explicit options replace the environment configuration entirely. `{ "sources": [] }` disables discovery. Invalid options produce a sanitised diagnostic and leave providers unchanged.
 
 ## Options
 
 ```ts
 type Options = {
-  sources: Array<{
-    id: string;
-    baseURL: string;
-    apiKeyEnv?: string;
-    modelsURL?: string;
-    discovery?: boolean;
-    models?: Array<
-      | string
-      | {
-          id: string;
-          name?: string;
-          context?: number;
-          output?: number;
-          tools?: boolean;
-          reasoning?: boolean;
-          modalities?: {
-            input?: Array<"text" | "audio" | "image" | "video" | "pdf">;
-            output?: Array<"text" | "audio" | "image" | "video" | "pdf">;
-          };
-          reasoning_options?: Array<{
-            type: "effort";
-            values: string[];
-          }>;
-        }
-    >;
-    timeoutMs?: number;
-    defaults?: {
-      context?: number;
-      output?: number;
-      tools?: boolean;
-    };
-  }>;
+	sources: Array<{
+		id: string;
+		baseURL: string;
+		apiKeyEnv?: string;
+		modelsURL?: string;
+		discovery?: boolean;
+		models?: Array<
+			| string
+			| {
+					id: string;
+					name?: string;
+					context?: number;
+					output?: number;
+					tools?: boolean;
+					reasoning?: boolean;
+					cost?: {
+						input: number;
+						output: number;
+						cache_read?: number;
+						cache_write?: number;
+						context_over_200k?: {
+							input: number;
+							output: number;
+							cache_read?: number;
+							cache_write?: number;
+						};
+					};
+					release_date?: string;
+					attachment?: boolean;
+					temperature?: boolean;
+					status?: "alpha" | "beta" | "deprecated" | "active";
+					modalities?: {
+						input?: Array<"text" | "audio" | "image" | "video" | "pdf">;
+						output?: Array<"text" | "audio" | "image" | "video" | "pdf">;
+					};
+					reasoning_options?: Array<{
+						type: "effort";
+						values: string[];
+					}>;
+			  }
+		>;
+		timeoutMs?: number;
+		defaults?: {
+			context?: number;
+			output?: number;
+			tools?: boolean;
+		};
+	}>;
 };
 ```
 
@@ -156,24 +133,24 @@ Any OpenAI-compatible inference endpoint can be configured, including servers wi
 
 ```json
 {
-  "sources": [
-    {
-      "id": "compatible",
-      "baseURL": "https://llm.example.com/v1",
-      "apiKeyEnv": "MODEL_API_KEY",
-      "discovery": false,
-      "models": [
-        "organisation/coder",
-        {
-          "id": "another-model",
-          "name": "Another model",
-          "context": 65536,
-          "output": 8192,
-          "tools": false
-        }
-      ]
-    }
-  ]
+	"sources": [
+		{
+			"id": "compatible",
+			"baseURL": "https://llm.example.com/v1",
+			"apiKeyEnv": "MODEL_API_KEY",
+			"discovery": false,
+			"models": [
+				"organisation/coder",
+				{
+					"id": "another-model",
+					"name": "Another model",
+					"context": 65536,
+					"output": 8192,
+					"tools": false
+				}
+			]
+		}
+	]
 }
 ```
 
@@ -187,41 +164,45 @@ When discovery is enabled, the endpoint must return a JSON object with a `data` 
 
 ```json
 {
-  "data": [
-    {
-      "id": "organisation/coder",
-      "name": "Coder",
-      "context_length": 65536,
-      "max_output_tokens": 8192,
-      "supports_tools": true,
-      "modalities": { "input": ["text", "image"], "output": ["text"] },
-      "reasoning": true,
-      "reasoning_options": [
-        { "type": "effort", "values": ["low", "medium", "high"] }
-      ]
-    },
-    { "id": "another-model", "object": "model", "owned_by": "local" }
-  ]
+	"data": [
+		{
+			"id": "organisation/coder",
+			"name": "Coder",
+			"context_length": 65536,
+			"max_output_tokens": 8192,
+			"supports_tools": true,
+			"modalities": { "input": ["text", "image"], "output": ["text"] },
+			"reasoning": true,
+			"reasoning_options": [
+				{ "type": "effort", "values": ["low", "medium", "high"] }
+			]
+		},
+		{ "id": "another-model", "object": "model", "owned_by": "local" }
+	]
 }
 ```
 
 Only `id` is required per model. `name` defaults to `id`. The plugin recognises these optional server extensions:
 
-| Metadata      | Precedence                                                           |
-| ------------- | -------------------------------------------------------------------- |
-| Context limit | `context_length`, then `max_context_length`, then the source default |
-| Output limit  | `max_output_tokens`, then the source default                         |
-| Tool support  | `tool_call`, then `supports_tools`, then the source default          |
-| Thinking      | `reasoning_options`, or `supported_reasoning_levels[].effort`       |
-| Display name  | `name`; duplicate names get ` (owned_by)` appended                 |
-| Pricing       | `cost.input`, `cost.output`, `cost.cache_read`, `cost.cache_write`   |
-| Model metadata| `release_date`, `attachment`, `temperature`, `status`                |
+| Metadata       | Precedence                                                                                                          |
+| -------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Context limit  | `context_length`, then `max_context_length`, then the source default                                                |
+| Output limit   | `max_output_tokens`, then the source default                                                                        |
+| Tool support   | `tool_call`, then `supports_tools`, then the source default                                                         |
+| Thinking       | `reasoning_options`, or `supported_reasoning_levels[].effort`                                                       |
+| Display name   | `name`; duplicate names get ` (owned_by)` appended                                                                  |
+| Pricing        | `cost.input`, `cost.output`, `cost.cache_read`, `cost.cache_write`, and the same fields in `cost.context_over_200k` |
+| Model metadata | `release_date`, `attachment`, `temperature`, `status`                                                               |
 
-These fields are not guaranteed by the standard OpenAI models endpoint. Numeric strings, null limits, nonpositive limits, duplicate model IDs and malformed entries invalidate that source's whole response. Unknown fields such as `object` and `owned_by` are ignored. Empty catalogues are valid. The IDs `__proto__`, `prototype` and `constructor` are rejected for both providers and models. IDs cannot contain `#` or surrounding whitespace. Provider IDs cannot contain `/`; model IDs can.
+These fields are not guaranteed by the standard OpenAI models endpoint. Numeric strings, null limits, nonpositive limits, duplicate model IDs and malformed entries invalidate that source's whole response. Unknown fields such as `object` are ignored. `owned_by` is used only for display names. `created` is not treated as a release date. Empty catalogues are valid. The IDs `__proto__`, `prototype` and `constructor` are rejected for both providers and models. IDs cannot contain `#` or surrounding whitespace. Provider IDs cannot contain `/`; model IDs can.
 
-The plugin does not infer pricing, reasoning or vision support from names. When the endpoint supplies effort values, V1 exposes `reasoning`, `reasoning_options`, and explicit variants; V2 exposes variants with `reasoningEffort` settings. V1 carries endpoint pricing and supported model metadata. V2 carries the same display and capability metadata where its schema permits. Both adapters carry endpoint `modalities.input` and `modalities.output`, defaulting missing directions to `["text"]`. Configured directions override discovered directions. Existing manual overrides can supply additional capabilities or costs.
+The plugin does not infer pricing, reasoning or vision support from names. When the endpoint supplies effort values, V2 exposes variants with `reasoningEffort` settings. The plugin carries endpoint `modalities.input` and `modalities.output`, defaulting missing directions to `["text"]`. Configured directions override discovered directions. Existing manual overrides can supply additional capabilities or costs.
 
-V1 merges discovered models into the provider's configuration, with manual fields and nested limits taking precedence. V2 adds source definitions through `ctx.provider.transform`. Existing source models with the same ID retain their fields while discovered variants are merged by ID, with existing variants taking precedence, and OpenCode applies its configured model overrides when it materialises models. Both adapters preserve unrelated providers, manual-only models, provider settings and activation choices. Existing provider settings override the source's base URL and API key for inference; discovery itself always uses the source options.
+Pricing is in USD per million tokens, with no unit conversion. V2 converts it to `cost` entries, with the base rate first and `context_over_200k` as a context tier of size `200000`. Missing cache rates become zero in V2, matching OpenCode's catalogue conversion. Explicit zero prices stay zero; absent pricing stays an empty cost array. Arbitrary pricing formats and other tier shapes are not supported.
+
+V2 carries `status` and converts `release_date` to epoch milliseconds in `time.released`. Missing or unparseable dates use zero; missing status uses `active`. Status alone does not disable a discovered model. V2 has no equivalent capability flags for `reasoning`, `attachment` and `temperature`, so it uses explicit modalities and effort variants instead. It does not translate a temperature-support flag into a generation temperature or attach unsupported fields to models.
+
+V2 adds source definitions through `ctx.provider.transform`. Existing source models with the same ID retain their fields while discovered variants are merged by ID, with existing variants taking precedence, and OpenCode applies its configured model overrides when it materialises models. The plugin preserves unrelated providers, manual-only models, provider settings and activation choices. Existing provider settings override the source's base URL and API key for inference; discovery itself always uses the source options.
 
 ## Refresh and failures
 
@@ -231,7 +212,7 @@ A timeout, HTTP error or invalid response falls back to configured `models` when
 
 HTTP 404, 405 and 501 report `discovery-unavailable`. HTTP 401 and 403 report `authentication-error`. A successful empty catalogue reports `empty-catalogue` and retains configured and existing manual models. Unsupported and empty listings suggest explicit models with `discovery: false`.
 
-Diagnostics contain a fixed actionable message, an error code, the zero-based position in `sources`, and an HTTP status where applicable. They never include tokens, URLs, raw exceptions or response bodies. V1 sends diagnostics through the SDK logger; V2 writes structured warnings to the host's stderr. V2 disposes its transform when the plugin unloads.
+Diagnostics contain a fixed actionable message, an error code, the zero-based position in `sources`, and an HTTP status where applicable. They never include tokens, URLs, raw exceptions or response bodies. V2 writes structured warnings to the host's stderr. V2 disposes its transform when the plugin unloads.
 
 ## Verify installed hosts
 
@@ -239,14 +220,11 @@ After building, run this from the repository root on Linux or macOS:
 
 ```sh
 python3 scripts/verify-model-discovery.py \
-  --v1 /path/to/opencode-v1 \
-  --v2 /path/to/opencode-v2 \
-  --legacy /path/to/opencode-1.2.27
+  --v2 /path/to/opencode-v2
 ```
 
-The optional `--legacy` check uses the function entrypoint. The script starts authenticated local endpoints, isolates each host's configuration and data, and verifies discovery plus inference. V2 verification also checks manual model overrides. It starts a private server and waits for plugin activation because initial V2 catalogue reads can precede plugin startup. Every server stops when the check finishes.
+The script starts authenticated local endpoints, isolates the host's configuration and data, and verifies discovery plus inference. V2 verification also checks manual model overrides. It starts a private server and waits for plugin activation because initial V2 catalogue reads can precede plugin startup. Every server stops when the check finishes.
 
 ## API references
 
 - [V2 plugins and provider transforms](https://opencode.ai/v2/docs/build/plugins)
-- [V1 migration and dual entrypoints](https://opencode.ai/v2/docs/build/plugins/migrate-v1)

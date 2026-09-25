@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise the discovery plugin in isolated OpenCode V1 and V2 hosts."""
+"""Exercise the discovery plugin in an isolated OpenCode V2 host."""
 
 import argparse
 import base64
@@ -119,30 +119,6 @@ class Endpoint(BaseHTTPRequestHandler):
         self.close_connection = True
 
 
-def run(binary, args, directory, env):
-    process = subprocess.Popen(
-        [binary, *args],
-        cwd=directory,
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        start_new_session=True,
-    )
-    try:
-        stdout, stderr = process.communicate(timeout=180)
-    except subprocess.TimeoutExpired:
-        os.killpg(process.pid, signal.SIGKILL)
-        process.communicate()
-        raise
-    if process.returncode:
-        raise RuntimeError(
-            f"{Path(binary).name} {' '.join(args)} exited {process.returncode}\n"
-            f"{stdout}\n{stderr}"
-        )
-    return stdout
-
-
 @contextmanager
 def v2_server(binary, directory, env):
     with (directory / "server.log").open("w") as log:
@@ -222,8 +198,8 @@ def v2_server(binary, directory, env):
             process.stdout.close()
 
 
-def verify(binary, version, plugin, base_url, root):
-    directory = root / version
+def verify(binary, plugin, base_url, root):
+    directory = root / "v2"
     directory.mkdir()
     env = {k: v for k, v in os.environ.items() if not k.startswith("OPENCODE_")}
     env.update(
@@ -259,91 +235,57 @@ def verify(binary, version, plugin, base_url, root):
             },
         ]
     }
-    if version == "v1-legacy":
-        config = {"plugin": [plugin.with_name("legacy.js").as_uri()]}
-        env["OPENCODE_MODEL_DISCOVERY"] = json.dumps(options)
-    elif version == "v1":
-        config = {"plugin": [[plugin.as_uri(), options]]}
-    else:
-        config = {"plugins": [{"package": str(plugin.parent), "options": options}]}
-        config["providers"] = {
-            "discovery-test": {
-                "models": {
-                    "minimal-model": {
-                        "name": "Manual override",
-                        "limit": {"context": 9000, "output": 2000},
-                        "capabilities": {
-                            "tools": False,
-                            "input": ["text"],
-                            "output": ["text"],
-                        },
-                    }
+    config = {"plugins": [{"package": str(plugin.parent), "options": options}]}
+    config["providers"] = {
+        "discovery-test": {
+            "models": {
+                "minimal-model": {
+                    "name": "Manual override",
+                    "limit": {"context": 9000, "output": 2000},
+                    "capabilities": {
+                        "tools": False,
+                        "input": ["text"],
+                        "output": ["text"],
+                    },
                 }
             }
         }
+    }
     (directory / "opencode.json").write_text(json.dumps(config))
     before = Endpoint.discovery_requests
     before_inference = Endpoint.inference_requests
     before_paths = len(Endpoint.paths)
-    if version == "v1":
-        catalogue = run(binary, ["models"], directory, env)
+    with v2_server(binary, directory, env) as request:
+        catalogue = request("/api/model")
         for provider in PROVIDERS:
-            found = {
-                line.removeprefix(f"{provider}/")
-                for line in catalogue.splitlines()
-                if line.startswith(f"{provider}/")
-            }
-            assert found == {MODEL, "minimal-model"}, (provider, found)
-    if version == "v2":
-        with v2_server(binary, directory, env) as request:
-            catalogue = request("/api/model")
-            for provider in PROVIDERS:
-                entries = [m for m in catalogue["data"] if m["providerID"] == provider]
-                assert {m["id"] for m in entries} == {MODEL, "minimal-model"}, (
-                    provider,
-                    entries,
-                )
-                assert all(m["enabled"] for m in entries), (provider, entries)
-            models = {
-                m["id"]: m
-                for m in catalogue["data"]
-                if m["providerID"] == "discovery-test"
-            }
-            assert models[MODEL]["limit"]["context"] == 65536, models
-            assert "minimal-model" in models, models
-            assert models["minimal-model"]["name"] == "Manual override", models
-            assert models["minimal-model"]["limit"]["context"] == 9000, models
-            assert models["minimal-model"]["capabilities"]["tools"] is False, models
-            for provider in PROVIDERS:
-                session = request(
-                    "/api/session",
-                    {
-                        "title": "Model discovery verification",
-                        "model": {"providerID": provider, "id": MODEL},
-                        "location": {"directory": str(directory)},
-                    },
-                )
-                result = request(
-                    f"/api/session/{session['data']['id']}/generate",
-                    {"prompt": "Reply with the verification marker."},
-                )
-                assert result["data"]["text"] == "DISCOVERY_OK", result
-    else:
-        for provider in PROVIDERS:
-            output = run(
-                binary,
-                [
-                    "run",
-                    "--model",
-                    f"{provider}/{MODEL}",
-                    "--format",
-                    "json",
-                    "Reply with the verification marker.",
-                ],
-                directory,
-                env,
+            entries = [m for m in catalogue["data"] if m["providerID"] == provider]
+            assert {m["id"] for m in entries} == {MODEL, "minimal-model"}, (
+                provider,
+                entries,
             )
-            assert "DISCOVERY_OK" in output, output
+            assert all(m["enabled"] for m in entries), (provider, entries)
+        models = {
+            m["id"]: m for m in catalogue["data"] if m["providerID"] == "discovery-test"
+        }
+        assert models[MODEL]["limit"]["context"] == 65536, models
+        assert "minimal-model" in models, models
+        assert models["minimal-model"]["name"] == "Manual override", models
+        assert models["minimal-model"]["limit"]["context"] == 9000, models
+        assert models["minimal-model"]["capabilities"]["tools"] is False, models
+        for provider in PROVIDERS:
+            session = request(
+                "/api/session",
+                {
+                    "title": "Model discovery verification",
+                    "model": {"providerID": provider, "id": MODEL},
+                    "location": {"directory": str(directory)},
+                },
+            )
+            result = request(
+                f"/api/session/{session['data']['id']}/generate",
+                {"prompt": "Reply with the verification marker."},
+            )
+            assert result["data"]["text"] == "DISCOVERY_OK", result
     assert Endpoint.discovery_requests > before, "Host did not query /models"
     assert Endpoint.inference_requests >= before_inference + len(PROVIDERS), (
         "Host did not call the discovered model"
@@ -353,15 +295,13 @@ def verify(binary, version, plugin, base_url, root):
     assert "/v1/unpublished" in paths, paths
     assert "/v1/must-not-request" not in paths, paths
     print(
-        f"PASS {version}: all models enabled; inference works with discovery, unavailable catalogue, and manual models"
+        "PASS V2: all models enabled; inference works with discovery, unavailable catalogue, and manual models"
     )
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--v1", required=True, help="Path to an OpenCode V1 binary")
     parser.add_argument("--v2", required=True, help="Path to an OpenCode V2 binary")
-    parser.add_argument("--legacy", help="Optional path to an older V1 binary")
     parser.add_argument(
         "--plugin",
         type=Path,
@@ -380,10 +320,7 @@ def main():
         with tempfile.TemporaryDirectory(prefix="model-discovery-", dir=scratch) as tmp:
             root = Path(tmp)
             base_url = f"http://127.0.0.1:{server.server_port}/v1"
-            if args.legacy:
-                verify(args.legacy, "v1-legacy", plugin, base_url, root)
-            verify(args.v1, "v1", plugin, base_url, root)
-            verify(args.v2, "v2", plugin, base_url, root)
+            verify(args.v2, plugin, base_url, root)
     finally:
         server.shutdown()
         server.server_close()

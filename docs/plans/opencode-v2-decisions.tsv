@@ -1,0 +1,9 @@
+decision	reason	evidence	result
+Use native skill transform with autoinvoke false	Bound prompt metadata without replacing permission-aware loading	https://opencode.ai/v2/docs/skills	Implementation in progress
+Keep source bundles in checkout	Relative docs and scripts remain available	plugins/pstack/pstack layout	Installer links native plugin and agents only
+Limit migration to owned OpenCode-visible links	Old multi-app state must not authorise unrelated filesystem changes	scripts/install.py version 1 state	Temporary-home migration tests required
+Use published Skill.Info.path	Current guide's location example differs from released types	docs/research/opencode-v2-skill-discovery.md	Verifier updated to inspect path
+Preserve native registry for OpenChamber	Its skill picker resolves native IDs and sends skill attachments	docs/research/opencode-v2-skill-discovery.md	Custom content loader rejected
+Retarget exact previously owned links	Moving the checkout should not require replacing user files	Independent installer review and moved-checkout reproduction	Fix and failure-injection tests in progress
+Capture outgoing model context	Registry flags alone do not prove request-size reduction	scripts/verify-skill-manager.py scope	Independent local-provider verification in progress
+Expose search outside Code Mode	Native custom tools defaulted to deferred discovery, hiding the bootstrap search tool from a normal model request	scripts/verify-skill-context.py	Actual skill_search invocation returned bounded metadata with hidden descriptions absent
