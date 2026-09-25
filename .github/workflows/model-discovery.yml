@@ -18,9 +18,6 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        v1: ["1.18.29", "1.18.32"]
     defaults:
       run:
         working-directory: plugins/model-discovery
@@ -36,12 +33,10 @@ jobs:
         run: |
           uv run --project ../.. ruff check ../../scripts/verify-model-discovery.py
           uv run --project ../.. ruff format --check ../../scripts/verify-model-discovery.py
-      - name: Install verification hosts
+      - name: Install the OpenCode V2 verification host
         run: |
-          npm install --prefix "$RUNNER_TEMP/opencode-hosts" @opencode/cli@2.0.14 opencode-ai@${{ matrix.v1 }} opencode-v1-legacy@npm:opencode-ai@1.2.27
-      - name: Verify both OpenCode hosts
+          npm install --prefix "$RUNNER_TEMP/opencode-hosts" @opencode/cli@2.0.14
+      - name: Verify OpenCode V2
         run: >-
           python3 ../../scripts/verify-model-discovery.py
-          --v1 "$RUNNER_TEMP/opencode-hosts/node_modules/opencode-ai/bin/opencode.exe"
           --v2 "$RUNNER_TEMP/opencode-hosts/node_modules/@opencode/cli/bin/opencode.exe"
-          --legacy "$RUNNER_TEMP/opencode-hosts/node_modules/opencode-v1-legacy/bin/opencode"

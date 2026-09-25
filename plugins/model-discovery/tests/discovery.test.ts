@@ -3,11 +3,8 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Model, Provider } from "@opencode/plugin";
 import type { ProviderEditor, ProviderRecord } from "@opencode/plugin/promise/provider";
-import type { Config } from "@opencode-ai/plugin";
-import { createOpencodeClient } from "@opencode-ai/sdk";
 import plugin from "../src/index";
 import { discover } from "../src/discovery";
-import { applyConfig } from "../src/v1";
 import { applyProviders } from "../src/v2";
 import type { Diagnostic } from "../src/discovery";
 
@@ -74,76 +71,174 @@ function editorFixture(initial: ProviderRecord[] = []) {
 }
 
 describe("discovery", () => {
-  it("fetches authenticated metadata, slash IDs and defaults once for V1, preserving manual fields", async () => {
-    vi.stubEnv("DISCOVERY_TEST_KEY", "test-only-secret");
-    const requests: string[] = [];
-    const baseURL = await endpoint((request, response) => {
-      requests.push(request.url ?? "");
-      expect(request.headers.authorization).toBe("Bearer test-only-secret");
+  it("carries endpoint pricing tiers, release dates and status into V2 provider models", async () => {
+    const baseURL = await endpoint((_request, response) => {
       response.end(
         JSON.stringify({
           data: [
             {
-              id: "org/coder",
-              name: "Coder",
-              context_length: 64000,
-              max_output_tokens: 8192,
-              supports_tools: false,
+              id: "priced",
+              cost: {
+                input: 2.5,
+                output: 12,
+                cache_read: 0.25,
+                cache_write: 3,
+                context_over_200k: {
+                  input: 5,
+                  output: 18,
+                  cache_read: 0.5,
+                  cache_write: 6,
+                },
+              },
+              release_date: "2026-09-01",
+              status: "beta",
+              reasoning: true,
+              attachment: true,
+              temperature: false,
+              modalities: { input: ["text", "image"], output: ["text"] },
+              reasoning_options: [{ type: "effort", values: ["high"] }],
             },
-            { id: "bare" },
-            { id: "alias", max_context_length: 128000 },
+            {
+              id: "no-cache",
+              cost: {
+                input: 1,
+                output: 4,
+                context_over_200k: { input: 2, output: 8, cache_read: 0 },
+              },
+              status: "deprecated",
+            },
+            {
+              id: "free",
+              cost: { input: 0, output: 0, cache_read: 0, cache_write: 0 },
+              status: "alpha",
+            },
+            { id: "bare", created: 1756684800, owned_by: "example" },
+            { id: "bad-date", release_date: "not-a-date" },
           ],
         }),
       );
     });
-    const hooks = await plugin.server(
-      { client: createOpencodeClient({ baseUrl: baseURL }) },
-      {
-        sources: [{ id: "local", baseURL: `${baseURL}/v1/`, apiKeyEnv: "DISCOVERY_TEST_KEY" }],
-      },
-    );
-    const config: Config = {
-      theme: "manual",
+    const editor = editorFixture();
+    await plugin.setup({
+      options: { sources: [{ id: "local", baseURL }] },
       provider: {
-        local: {
-          name: "Manual provider",
-          options: { timeout: 321 },
-          models: {
-            "org/coder": {
-              name: "Manual coder",
-              limit: { context: 96000, output: 1234 },
-              tool_call: true,
-              options: { temperature: 0.2 },
-            },
-            "manual-only": { name: "Retained" },
-          },
+        transform: async (transform) => {
+          transform(editor);
+          return { dispose: async () => {} };
         },
-        unrelated: { name: "Unrelated" },
-      },
-    };
-    await hooks.config?.(config);
-    await hooks.config?.(config);
-    expect(requests).toEqual(["/v1/models"]);
-    expect(config.theme).toBe("manual");
-    expect(config.provider?.unrelated).toEqual({ name: "Unrelated" });
-    expect(config.provider?.local).toMatchObject({
-      name: "Manual provider",
-      npm: "@ai-sdk/openai-compatible",
-      options: { baseURL: `${baseURL}/v1/`, apiKey: "test-only-secret", timeout: 321 },
-      models: {
-        "org/coder": {
-          name: "Manual coder",
-          limit: { context: 96000, output: 1234 },
-          tool_call: true,
-          options: { temperature: 0.2 },
-        },
-        bare: { name: "bare", limit: { context: 32768, output: 4096 }, tool_call: true },
-        alias: { limit: { context: 128000, output: 4096 } },
-        "manual-only": { name: "Retained" },
       },
     });
-    expect(config.provider?.local?.models?.bare).not.toHaveProperty("cost");
-    expect(config.provider?.local?.models?.bare).not.toHaveProperty("reasoning");
+    const models = editor.get("local")?.models;
+    expect(models?.get("priced")).toMatchObject({
+      cost: [
+        { input: 2.5, output: 12, cache: { read: 0.25, write: 3 } },
+        {
+          tier: { type: "context", size: 200000 },
+          input: 5,
+          output: 18,
+          cache: { read: 0.5, write: 6 },
+        },
+      ],
+      time: { released: 1788220800000 },
+      status: "beta",
+      capabilities: { input: ["text", "image"], output: ["text"], tools: true },
+      variants: [{ id: "high", settings: { reasoningEffort: "high" } }],
+    });
+    expect(models?.get("no-cache")).toMatchObject({
+      cost: [
+        { input: 1, output: 4, cache: { read: 0, write: 0 } },
+        {
+          tier: { type: "context", size: 200000 },
+          input: 2,
+          output: 8,
+          cache: { read: 0, write: 0 },
+        },
+      ],
+      status: "deprecated",
+      enabled: true,
+    });
+    expect(models?.get("free")).toMatchObject({
+      cost: [{ input: 0, output: 0, cache: { read: 0, write: 0 } }],
+      status: "alpha",
+    });
+    expect(models?.get("bare")).toMatchObject({
+      cost: [],
+      time: { released: 0 },
+      status: "active",
+    });
+    expect(models?.get("bad-date")?.time).toEqual({ released: 0 });
+    expect(models?.get("priced")).not.toHaveProperty("reasoning");
+    expect(models?.get("priced")).not.toHaveProperty("attachment");
+    expect(models?.get("priced")).not.toHaveProperty("temperature");
+    for (const model of models?.values() ?? []) expect(() => Model.Info.make(model)).not.toThrow();
+  });
+
+  it("preserves configured and existing model overrides for discovered V2 metadata", async () => {
+    const baseURL = await endpoint((_request, response) => {
+      response.end(
+        JSON.stringify({
+          data: ["configured", "existing"].map((id) => ({
+            id,
+            cost: { input: 2, output: 10, cache_read: 1 },
+            release_date: "2026-09-01",
+            status: "beta",
+          })),
+        }),
+      );
+    });
+    const id = Provider.ID.make("local");
+    const existing = {
+      ...Model.Info.default(id, Model.ID.make("existing")),
+      cost: [
+        {
+          input: Model.Cost.fields.input.make(7),
+          output: Model.Cost.fields.output.make(21),
+          cache: {
+            read: Model.Cost.fields.input.make(0),
+            write: Model.Cost.fields.input.make(0),
+          },
+        },
+      ],
+      time: { released: 1234567890000 },
+      status: "alpha",
+      enabled: false,
+    } satisfies Model.Info;
+    const editor = editorFixture([
+      {
+        provider: Provider.Info.empty(id),
+        models: new Map([[existing.id, existing]]),
+      },
+    ]);
+    await plugin.setup({
+      options: {
+        sources: [
+          {
+            id: "local",
+            baseURL,
+            models: [
+              {
+                id: "configured",
+                cost: { input: 0, output: 0 },
+                release_date: "2026-01-01",
+                status: "active",
+              },
+            ],
+          },
+        ],
+      },
+      provider: {
+        transform: async (transform) => {
+          transform(editor);
+          return { dispose: async () => {} };
+        },
+      },
+    });
+    expect(editor.get("local")?.models.get("existing")).toEqual(existing);
+    expect(editor.get("local")?.models.get("configured")).toMatchObject({
+      cost: [{ input: 0, output: 0, cache: { read: 0, write: 0 } }],
+      time: { released: 1767225600000 },
+      status: "active",
+    });
   });
 
   it("registers V2 source definitions, retains manual models/settings and disposes its registration", async () => {
@@ -169,7 +264,12 @@ describe("discovery", () => {
       name: "Manual",
       enabled: false,
       limit: { context: 500, output: 100 },
-      variants: [{ id: Model.VariantID.make("high"), settings: { reasoningEffort: "high" } }],
+      variants: [
+        {
+          id: Model.VariantID.make("high"),
+          settings: { reasoningEffort: "high" },
+        },
+      ],
     };
     const info = {
       ...Provider.Info.empty(id),
@@ -183,7 +283,11 @@ describe("discovery", () => {
     const cleanup = await plugin.setup({
       options: {
         sources: [
-          { id: "local", baseURL, defaults: { context: 16000, output: 2048, tools: false } },
+          {
+            id: "local",
+            baseURL,
+            defaults: { context: 16000, output: 2048, tools: false },
+          },
           { id: "new", baseURL },
         ],
       },
@@ -232,26 +336,21 @@ describe("discovery", () => {
     expect(typeof plugin.setup).toBe("function");
   });
 
-  it("carries endpoint modalities into V1 and V2", async () => {
+  it("carries endpoint modalities into V2", async () => {
     const baseURL = await endpoint((_request, response) =>
-      response.end(JSON.stringify({
-        data: [
-          { id: "vision", modalities: { input: ["text", "image"], output: ["text"] } },
-          { id: "partial", modalities: { input: ["image"] } },
-        ],
-      })),
+      response.end(
+        JSON.stringify({
+          data: [
+            {
+              id: "vision",
+              modalities: { input: ["text", "image"], output: ["text"] },
+            },
+            { id: "partial", modalities: { input: ["image"] } },
+          ],
+        }),
+      ),
     );
     const inventories = await discover({ sources: [{ id: "local", baseURL }] }, () => {});
-    const config: Config = {};
-    applyConfig(config, inventories);
-    expect(config.provider?.local?.models?.vision?.modalities).toEqual({
-      input: ["text", "image"],
-      output: ["text"],
-    });
-    expect(config.provider?.local?.models?.partial?.modalities).toEqual({
-      input: ["image"],
-      output: ["text"],
-    });
     const editor = editorFixture();
     applyProviders(editor, inventories);
     expect(editor.get("local")?.models.get("vision")?.capabilities).toEqual({
@@ -261,7 +360,7 @@ describe("discovery", () => {
     });
   });
 
-  it("carries endpoint reasoning efforts into V1 models and V2 variants", async () => {
+  it("carries endpoint reasoning efforts into V2 variants", async () => {
     const baseURL = await endpoint((_request, response) =>
       response.end(
         JSON.stringify({
@@ -284,26 +383,6 @@ describe("discovery", () => {
       ),
     );
     const inventories = await discover({ sources: [{ id: "local", baseURL }] }, () => {});
-    const config: Config = {};
-    applyConfig(config, inventories);
-    expect(config.provider?.local?.models?.thinker).toMatchObject({
-      reasoning: true,
-      reasoning_options: [{ type: "effort", values: ["low", "high", "xhigh"] }],
-      variants: {
-        low: { reasoningEffort: "low" },
-        high: { reasoningEffort: "high" },
-        xhigh: { reasoningEffort: "xhigh" },
-      },
-    });
-    expect(config.provider?.local?.models?.codex).toMatchObject({
-      reasoning: true,
-      reasoning_options: [{ type: "effort", values: ["low", "max"] }],
-      variants: {
-        low: { reasoningEffort: "low" },
-        max: { reasoningEffort: "max" },
-      },
-    });
-
     const editor = editorFixture();
     applyProviders(editor, inventories);
     expect(editor.get("local")?.models.get("thinker")?.variants).toEqual([
@@ -326,7 +405,9 @@ describe("discovery", () => {
     });
     vi.stubEnv(
       "OPENCODE_MODEL_DISCOVERY",
-      JSON.stringify({ sources: [{ id: "env", baseURL, modelsURL: `${baseURL}/catalogue` }] }),
+      JSON.stringify({
+        sources: [{ id: "env", baseURL, modelsURL: `${baseURL}/catalogue` }],
+      }),
     );
     expect((await discover({}, () => {})).map((item) => item.source.id)).toEqual(["env"]);
     expect(await discover({ sources: [] }, () => {})).toEqual([]);
@@ -403,8 +484,14 @@ describe("discovery", () => {
     );
     expect(result.map((item) => [item.source.id, item.models.size])).toEqual([["empty", 0]]);
     expect(diagnostics).toHaveLength(2);
-    expect(diagnostics).toContainEqual({ code: "invalid-response", sourceIndex: 0 });
-    expect(diagnostics).toContainEqual({ code: "empty-catalogue", sourceIndex: 1 });
+    expect(diagnostics).toContainEqual({
+      code: "invalid-response",
+      sourceIndex: 0,
+    });
+    expect(diagnostics).toContainEqual({
+      code: "empty-catalogue",
+      sourceIndex: 1,
+    });
   });
 
   it("isolates HTTP, malformed JSON, invalid metadata, missing auth, redirect and timeout failures", async () => {
@@ -455,7 +542,10 @@ describe("discovery", () => {
       sourceIndex: 0,
       status: 401,
     });
-    expect(diagnostics).toContainEqual({ code: "missing-api-key", sourceIndex: 6 });
+    expect(diagnostics).toContainEqual({
+      code: "missing-api-key",
+      sourceIndex: 6,
+    });
     expect(paths).not.toContain("/leak");
     expect(JSON.stringify(diagnostics)).not.toMatch(/secret|127\.0\.0\.1|Bearer/);
   });
@@ -524,46 +614,6 @@ describe("discovery", () => {
     expect(refs).toEqual([{ providerID: "local", id: "org/coder" }]);
   });
 
-  it("preserves existing V1 providers on failure and sends only sanitised log data", async () => {
-    const logs: unknown[] = [];
-    const baseURL = await endpoint((request, response) => {
-      if (request.url === "/log") {
-        let body = "";
-        request.on("data", (chunk: Buffer) => {
-          body += chunk.toString();
-        });
-        request.on("end", () => {
-          const value: unknown = JSON.parse(body);
-          logs.push(value);
-          response.end("true");
-        });
-      } else {
-        response.writeHead(500);
-        response.end("secret failure");
-      }
-    });
-    const config: Config = {
-      provider: { local: { name: "Unchanged", models: { old: { name: "Old" } } } },
-    };
-    const before = structuredClone(config);
-    const hooks = await plugin.server(
-      { client: createOpencodeClient({ baseUrl: baseURL }) },
-      { sources: [{ id: "local", baseURL }] },
-    );
-    await hooks.config?.(config);
-    expect(config).toEqual(before);
-    await vi.waitFor(() => expect(logs).toHaveLength(1));
-    expect(logs).toEqual([
-      {
-        service: "model-discovery",
-        level: "warn",
-        message:
-          "Model listing returned an HTTP error. Check listing access or configure explicit models.",
-        extra: { code: "http-error", sourceIndex: 0, status: 500 },
-      },
-    ]);
-  });
-
   it.each([404, 405, 501, 401, 403, 500])(
     "classifies HTTP %s and uses configured models only when supplied",
     async (status) => {
@@ -581,7 +631,13 @@ describe("discovery", () => {
               baseURL,
               models: [
                 "org/manual",
-                { id: "named", name: "Named", context: 12345, output: 1234, tools: false },
+                {
+                  id: "named",
+                  name: "Named",
+                  context: 12345,
+                  output: 1234,
+                  tools: false,
+                },
               ],
             },
           ],
@@ -593,7 +649,13 @@ describe("discovery", () => {
           "configured",
           [
             { id: "org/manual", name: "org/manual" },
-            { id: "named", name: "Named", context: 12345, output: 1234, tools: false },
+            {
+              id: "named",
+              name: "Named",
+              context: 12345,
+              output: 1234,
+              tools: false,
+            },
           ],
         ],
       ]);
@@ -622,7 +684,10 @@ describe("discovery", () => {
         [{ id: "manual", name: "manual" }],
       ]);
       expect(diagnostics).toEqual([
-        { code: body === '{"data":[]}' ? "empty-catalogue" : "invalid-response", sourceIndex: 0 },
+        {
+          code: body === '{"data":[]}' ? "empty-catalogue" : "invalid-response",
+          sourceIndex: 0,
+        },
       ]);
     },
   );
@@ -662,18 +727,6 @@ describe("discovery", () => {
       ["empty", []],
     ]);
     expect(diagnostics).toEqual([{ code: "missing-api-key", sourceIndex: 2 }]);
-    const config: Config = {
-      disabled_providers: ["local"],
-      provider: {
-        local: { blacklist: ["manual"] },
-        empty: { models: { native: { name: "Native" } } },
-      },
-    };
-    applyConfig(config, inventories);
-    expect(config.disabled_providers).toEqual(["local"]);
-    expect(config.provider?.local?.blacklist).toEqual(["manual"]);
-    expect(config.provider?.local?.models?.["no-tools"]?.tool_call).toBe(false);
-    expect(config.provider?.empty?.models).toEqual({ native: { name: "Native" } });
     const editor = editorFixture();
     applyProviders(editor, inventories);
     expect(editor.get("empty")?.models.size).toBe(0);
@@ -726,8 +779,20 @@ describe("discovery", () => {
     );
     expect(inventories.map((item) => [...item.models.values()])).toEqual([
       [
-        { id: "string", name: "Server name", context: 9000, output: 2000, tools: false },
-        { id: "override", name: "New", context: 8000, output: 3000, tools: false },
+        {
+          id: "string",
+          name: "Server name",
+          context: 9000,
+          output: 2000,
+          tools: false,
+        },
+        {
+          id: "override",
+          name: "New",
+          context: 8000,
+          output: 3000,
+          tools: false,
+        },
         { id: "discovered", name: "discovered" },
         { id: "manual", name: "manual", context: 7000 },
       ],

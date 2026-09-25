@@ -11,14 +11,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    },
-    "./v1": {
-      "types": "./dist/legacy.d.ts",
-      "import": "./dist/legacy.js"
     }
   },
   "scripts": {
-    "build": "rm -rf dist && bun build src/index.ts src/legacy.ts --outdir dist --target bun --packages external --splitting && tsc --emitDeclarationOnly",
+    "build": "rm -rf dist && bun build src/index.ts --outdir dist --target bun --packages external && tsc --emitDeclarationOnly",
     "test": "vitest run",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json",
     "lint": "oxlint src tests",
@@ -27,12 +23,10 @@
     "check": "bun run typecheck && bun run lint && bun run format:check && bun run test && bun run build"
   },
   "dependencies": {
-    "@opencode-ai/plugin": "1.18.32",
     "@opencode/plugin": "2.0.14",
     "zod": "4.6.5"
   },
   "devDependencies": {
-    "@opencode-ai/sdk": "1.18.32",
     "@types/bun": "1.4.2",
     "oxfmt": "0.70.0",
     "oxlint": "1.85.0",
