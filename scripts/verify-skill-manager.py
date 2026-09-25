@@ -107,7 +107,7 @@ def v2_server(binary, root, env):
                         return json.loads(payload) if payload else None
                 except urllib.error.HTTPError as exc:
                     raise RuntimeError(
-                        f"{req.method} {path}: HTTP {exc.code}: {exc.read().decode()}"
+                        f"{req.get_method()} {path}: HTTP {exc.code}: {exc.read().decode()}"
                     ) from exc
 
             yield request

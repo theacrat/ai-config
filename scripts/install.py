@@ -156,7 +156,6 @@ def validate_sources(paths: Paths) -> set[str]:
 
 
 def safe_parent(paths: Paths, path: Path) -> bool:
-    """Do not follow a visible directory alias into another application's files."""
     anchors = (paths.xdg_config, paths.home)
     for anchor in anchors:
         if path.is_relative_to(anchor):
