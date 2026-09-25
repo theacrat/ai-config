@@ -4,7 +4,8 @@ import { z } from "zod";
 import { createController } from "../src/controller";
 import { createService } from "../src/service";
 import { actionResultSchema, snapshotSchema } from "../src/snapshot";
-import { parseAntigravity, parseBank, parseCodex } from "../src/live";
+import { parseAntigravity } from "../src/providers/antigravity";
+import { parseBank, parseCodex } from "../src/providers/codex";
 
 const servers: Server[] = [];
 async function listen(server: Server) {
@@ -98,7 +99,7 @@ async function fixture() {
                 provider: "antigravity",
                 project_id: state.missingProject ? undefined : "private-project",
               },
-              { auth_index: "other-1", name: "other.json", provider: "claude" },
+              { auth_index: "other-1", name: "other.json", provider: "qwen" },
             ],
           }),
         );

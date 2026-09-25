@@ -89,7 +89,7 @@ describe("local service boundary", () => {
             files: [
               {
                 auth_index: "0123456789abcdef",
-                provider: "claude",
+                provider: "qwen",
                 id_token: "private-canary",
               },
             ],

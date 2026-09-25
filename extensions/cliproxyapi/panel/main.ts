@@ -250,10 +250,7 @@ function accountNode(account: Account): HTMLElement {
     controls.append(node);
   }
   if (account.actions) {
-    if (
-      account.provider === "codex" &&
-      (live?.bank?.available === null || (live?.bank?.available ?? 0) > 0)
-    ) {
+    if (live?.bank && (live.bank.available === null || live.bank.available > 0)) {
       const reset = iconButton(
         "reset",
         bankAvailable === null

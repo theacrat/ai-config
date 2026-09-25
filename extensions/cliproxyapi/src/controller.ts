@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { parseSnapshot } from "./parser";
 import {
   authIndexSchema,
@@ -7,8 +6,10 @@ import {
   type ActionResult,
   type Snapshot,
 } from "./snapshot";
-import { codexHeaders, codexRoot, object, readLive, type PrivateAccount } from "./live";
-import { apiCall, management, Rejected, ServiceError, type Connection } from "./upstream";
+import { context, readLive } from "./live";
+import { providers } from "./providers";
+import { LiveError, object, providerId, type PrivateAccount } from "./providers/shared";
+import { management, Rejected, ServiceError, type Connection } from "./upstream";
 
 export type Controller = ReturnType<typeof createController>;
 export function createController(config: () => Promise<Connection>) {
@@ -36,12 +37,8 @@ export function createController(config: () => Promise<Connection>) {
         privateAccounts.set(id.data, {
           authIndex: id.data,
           name: typeof f.name === "string" ? f.name : "",
-          provider: typeof f.provider === "string" ? f.provider.toLowerCase() : "",
-          project: typeof f.project_id === "string" ? f.project_id : "",
-          chatgptAccount:
-            typeof object(f.id_token).chatgpt_account_id === "string"
-              ? String(object(f.id_token).chatgpt_account_id)
-              : "",
+          provider: providerId(f.provider),
+          file: f,
         });
       }
     return { snapshot, privateAccounts };
@@ -56,13 +53,13 @@ export function createController(config: () => Promise<Connection>) {
     try {
       if (!privateAccount) throw new Error();
       account.live = await readLive(connection, privateAccount, signal);
-    } catch {
+    } catch (error) {
       account.live = {
         status: "error",
         attemptedAt: Date.now(),
         error:
-          privateAccount?.provider === "antigravity" && !privateAccount.project
-            ? "Project ID missing from CPA listing"
+          error instanceof LiveError
+            ? error.message
             : "Live quota read failed; previous readings retained",
         observation: prior?.live?.observation ?? null,
         bank: prior?.live?.bank ?? null,
@@ -72,7 +69,7 @@ export function createController(config: () => Promise<Connection>) {
       status: Boolean(privateAccount?.name),
       refreshAuth: Boolean(privateAccount?.name),
       bankReset:
-        account.provider === "codex" &&
+        Boolean(providers[account.provider]?.consumeReset) &&
         account.live.status === "fresh" &&
         (account.live.bank?.available ?? 0) > 0,
     };
@@ -134,24 +131,17 @@ export function createController(config: () => Promise<Connection>) {
       const target = current.privateAccounts.get(id);
       if (!target?.name) return { status: "rejected", message: "Account is no longer available" };
       if (request.kind === "consume-reset") {
-        if (target.provider !== "codex")
-          return { status: "rejected", message: "Banked resets are only supported for Codex" };
+        const consume = providers[target.provider]?.consumeReset;
+        if (!consume)
+          return {
+            status: "rejected",
+            message: "Banked resets are not supported for this provider",
+          };
         const live = await readLive(connection, target, signal);
         if ((live.bank?.available ?? 0) <= 0)
           return { status: "rejected", message: "No banked resets available" };
         submitted = true;
-        await apiCall(
-          connection,
-          {
-            authIndex: id,
-            method: "POST",
-            url: codexRoot + "rate-limit-reset-credits/consume",
-            header: codexHeaders(target),
-            data: JSON.stringify({ redeem_request_id: randomUUID() }),
-          },
-          signal,
-          true,
-        );
+        await consume(context(connection, target, signal));
       } else {
         submitted = true;
         await management(

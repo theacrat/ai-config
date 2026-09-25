@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { providerId } from "./providers/shared";
 import {
   authIndexSchema,
   healthSchema,
@@ -148,20 +149,7 @@ export function parseSnapshot(value: unknown, fetchedAt = Date.now()): Snapshot 
       continue;
     }
     ids.add(index.data);
-    const providerResult = z
-      .enum([
-        "codex",
-        "claude",
-        "gemini",
-        "antigravity",
-        "qwen",
-        "iflow",
-        "kimi",
-        "vertex",
-        "openai-compatibility",
-      ])
-      .safeParse(entry.provider);
-    const provider = providerResult.success ? providerResult.data : "other";
+    const provider = providerId(entry.provider);
     const models = Object.entries(object(entry.model_quotas));
     const rawCooldowns = Array.isArray(entry.cooldowns) ? entry.cooldowns : null;
     let cooldowns: Account["cooldowns"] = rawCooldowns === null ? null : [];
