@@ -8,7 +8,7 @@ import {
   type Snapshot,
 } from "./snapshot";
 
-export function date(value: unknown): number | null {
+function date(value: unknown): number | null {
   if (typeof value !== "string" || !/^\d{4}-\d\d-\d\dT/.test(value)) return null;
   const parsed = Date.parse(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;

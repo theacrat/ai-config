@@ -47,7 +47,6 @@ export function parseAntigravity(value: unknown, at: number): Observation {
         });
       });
     });
-  if (!readings.length) throw new Error("invalid quota");
   return observe(at, readings);
 }
 
@@ -90,6 +89,7 @@ export const antigravity: Provider = {
     const project = await projectId(context);
     if (!project) throw new LiveError("Project ID missing from CPA listing");
     let failure: unknown;
+    let empty: Observation | null = null;
     for (const domain of domains) {
       try {
         const payload = await call({
@@ -102,12 +102,15 @@ export const antigravity: Provider = {
           },
           data: JSON.stringify({ project }),
         });
-        return { observation: parseAntigravity(payload, Date.now()) };
+        const observation = parseAntigravity(payload, Date.now());
+        if (observation.windows.length) return { observation };
+        empty ??= observation;
       } catch (error) {
         failure = error;
         if (signal.aborted) break;
       }
     }
+    if (empty) return { observation: empty };
     throw failure;
   },
 };

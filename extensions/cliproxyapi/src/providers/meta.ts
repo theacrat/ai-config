@@ -1,6 +1,5 @@
 import type { Observation } from "../snapshot";
 import {
-  first,
   instant,
   LiveError,
   numeric,
@@ -34,8 +33,11 @@ export function parseMeta(value: unknown, at: number): Observation {
 
 export const meta: Provider = {
   async read({ account, call, download }) {
-    const runtime = first(account.file.runtime_only, account.file.runtimeOnly);
-    if (runtime === true || runtime === "true")
+    if (
+      [account.file.runtime_only, account.file.runtimeOnly].some(
+        (value) => value === true || value === "true",
+      )
+    )
       throw new LiveError("Quota needs a downloadable Meta credential file");
     const token = object(await download()).dca_token;
     if (typeof token !== "string" || !/^dca:\S+$/.test(token.trim()))

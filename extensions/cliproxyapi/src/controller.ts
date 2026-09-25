@@ -11,6 +11,7 @@ import { providers } from "./providers";
 import { LiveError, object, providerId, type PrivateAccount } from "./providers/shared";
 import { management, Rejected, ServiceError, type Connection } from "./upstream";
 
+export const readFailed = "Live quota read failed; previous readings retained";
 export type Controller = ReturnType<typeof createController>;
 export function createController(config: () => Promise<Connection>) {
   let cached: Snapshot | null = null;
@@ -57,10 +58,7 @@ export function createController(config: () => Promise<Connection>) {
       account.live = {
         status: "error",
         attemptedAt: Date.now(),
-        error:
-          error instanceof LiveError
-            ? error.message
-            : "Live quota read failed; previous readings retained",
+        error: error instanceof LiveError ? error.message : readFailed,
         observation: prior?.live?.observation ?? null,
         bank: prior?.live?.bank ?? null,
       };

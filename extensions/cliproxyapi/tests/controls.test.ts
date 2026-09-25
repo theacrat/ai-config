@@ -59,6 +59,7 @@ async function fixture() {
     failUsage: false,
     failBank: false,
     failAGPrimary: false,
+    emptyAG: false,
     consumed: false,
     disabled: false,
     innerConsumeStatus: 204,
@@ -167,7 +168,9 @@ async function fixture() {
                 },
               ],
             }
-          : ag;
+          : state.emptyAG
+            ? { groups: [] }
+            : ag;
         res.end(
           JSON.stringify({
             status_code:
@@ -366,6 +369,16 @@ describe("real service routes with fake management upstream", () => {
       applicable: 0,
       error: "Banked reset details unavailable",
     });
+  });
+  it("tries every AG domain for groups but reports an all-empty answer as fresh", async () => {
+    const f = await fixture();
+    f.state.emptyAG = true;
+    const snapshot = await f.snapshot();
+    expect(snapshot.accounts[1]?.live).toMatchObject({
+      status: "fresh",
+      observation: { windows: [] },
+    });
+    expect(f.state.calls.filter((c) => c.authIndex === "ag-1")).toHaveLength(3);
   });
   it("does not let a read started before consumption overwrite post-action quota", async () => {
     const f = await fixture();

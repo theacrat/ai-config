@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { randomBytes } from "node:crypto";
+import { readFailed } from "../src/controller";
 import { providers } from "../src/providers";
 import { snapshotSchema, hasQuotaSignals } from "../src/snapshot";
 
@@ -69,7 +70,11 @@ try {
     throw new Error(code);
   }
   const snapshot = snapshotSchema.parse(await response.json());
-  if (snapshot.accounts.some((a) => providers.has(a.provider) && a.live?.status !== "fresh"))
+  if (
+    snapshot.accounts.some(
+      (a) => providers.has(a.provider) && a.live?.status === "error" && a.live.error === readFailed,
+    )
+  )
     throw new Error("live-quota-failed");
   console.log(
     JSON.stringify(

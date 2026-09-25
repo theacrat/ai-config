@@ -73,7 +73,7 @@ export type PrivateAccount = {
   provider: string;
   file: Record<string, unknown>;
 };
-export type ProviderRequest = {
+type ProviderRequest = {
   method: "GET" | "POST";
   url: string;
   header: Record<string, string>;
