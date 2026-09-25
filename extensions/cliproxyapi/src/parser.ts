@@ -1,5 +1,4 @@
-import { z } from "zod";
-import { providerId } from "./providers/shared";
+import { object, providerId } from "./providers/shared";
 import {
   authIndexSchema,
   healthSchema,
@@ -9,11 +8,6 @@ import {
   type Snapshot,
 } from "./snapshot";
 
-const objectSchema = z.record(z.string(), z.unknown());
-function object(value: unknown): Record<string, unknown> {
-  const parsed = objectSchema.safeParse(value);
-  return parsed.success ? parsed.data : {};
-}
 export function date(value: unknown): number | null {
   if (typeof value !== "string" || !/^\d{4}-\d\d-\d\dT/.test(value)) return null;
   const parsed = Date.parse(value);

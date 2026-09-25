@@ -10,6 +10,7 @@ export function context(
 ): ProviderContext {
   return {
     account,
+    signal,
     call: (request, consume) =>
       apiCall(config, { authIndex: account.authIndex, ...request }, signal, consume),
     download: () =>
@@ -25,7 +26,7 @@ export async function readLive(
   signal: AbortSignal,
 ): Promise<NonNullable<Account["live"]>> {
   const attemptedAt = Date.now();
-  const provider = providers[account.provider];
+  const provider = providers.get(account.provider);
   if (!provider)
     return { status: "unsupported", attemptedAt, error: null, observation: null, bank: null };
   const { observation, bank } = await provider.read(context(config, account, signal));

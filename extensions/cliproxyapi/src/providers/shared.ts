@@ -25,11 +25,15 @@ function bounded(ms: number): number | null {
 export function instant(value: unknown): number | null {
   if (typeof value === "string" && /^\d{4}-\d\d-\d\dT/.test(value))
     return bounded(Date.parse(value.replace(/(\.\d{3})\d+/, "$1")));
-  const seconds = numeric(value);
-  return seconds === null ? null : bounded(seconds * 1000);
+  const unix = numeric(value);
+  return unix === null ? null : bounded(unix < 1e11 ? unix * 1000 : unix);
 }
 export function first(...values: unknown[]): unknown {
   return values.find((value) => value !== undefined && value !== null);
+}
+export function firstText(...values: unknown[]): string | null {
+  for (const value of values) if (typeof value === "string" && value.trim()) return value.trim();
+  return null;
 }
 
 export type Bank = NonNullable<NonNullable<Account["live"]>["bank"]>;
@@ -77,6 +81,7 @@ export type ProviderRequest = {
 };
 export type ProviderContext = {
   account: PrivateAccount;
+  signal: AbortSignal;
   call(request: ProviderRequest, consume?: boolean): Promise<unknown>;
   download(): Promise<unknown>;
 };
@@ -86,7 +91,10 @@ export type Provider = {
 };
 export const tokenHeader = { Authorization: "Bearer $TOKEN$" };
 
-const aliases: Record<string, string> = { "x-ai": "xai", grok: "xai" };
+const aliases = new Map([
+  ["x-ai", "xai"],
+  ["grok", "xai"],
+]);
 export function providerId(value: unknown): string {
   const key =
     typeof value === "string"
@@ -97,5 +105,5 @@ export function providerId(value: unknown): string {
           .replace(/[^a-z0-9.-]/g, "")
           .slice(0, 32)
       : "";
-  return aliases[key] ?? (key || "other");
+  return aliases.get(key) ?? (key || "other");
 }

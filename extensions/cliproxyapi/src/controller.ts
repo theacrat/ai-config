@@ -69,7 +69,7 @@ export function createController(config: () => Promise<Connection>) {
       status: Boolean(privateAccount?.name),
       refreshAuth: Boolean(privateAccount?.name),
       bankReset:
-        Boolean(providers[account.provider]?.consumeReset) &&
+        Boolean(providers.get(account.provider)?.consumeReset) &&
         account.live.status === "fresh" &&
         (account.live.bank?.available ?? 0) > 0,
     };
@@ -131,7 +131,7 @@ export function createController(config: () => Promise<Connection>) {
       const target = current.privateAccounts.get(id);
       if (!target?.name) return { status: "rejected", message: "Account is no longer available" };
       if (request.kind === "consume-reset") {
-        const consume = providers[target.provider]?.consumeReset;
+        const consume = providers.get(target.provider)?.consumeReset;
         if (!consume)
           return {
             status: "rejected",

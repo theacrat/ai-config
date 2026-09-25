@@ -12,18 +12,16 @@ import {
   type Reading,
 } from "./shared";
 
-const unitMinutes: Record<string, number> = {
-  SECOND: 1 / 60,
-  SECONDS: 1 / 60,
-  MINUTE: 1,
-  MINUTES: 1,
-  HOUR: 60,
-  HOURS: 60,
-  DAY: 1440,
-  DAYS: 1440,
-  WEEK: 10080,
-  WEEKS: 10080,
-};
+const unitMinutes = new Map([
+  ["SECOND", 1 / 60],
+  ["SECONDS", 1 / 60],
+  ["HOUR", 60],
+  ["HOURS", 60],
+  ["DAY", 1440],
+  ["DAYS", 1440],
+  ["WEEK", 10080],
+  ["WEEKS", 10080],
+]);
 function minutes(duration: unknown, unit: unknown): number | null {
   const n = numeric(duration);
   if (!n) return null;
@@ -34,8 +32,7 @@ function minutes(duration: unknown, unit: unknown): number | null {
           .toUpperCase()
           .replace(/^TIME_UNIT_/, "")
       : "";
-  const factor = key ? unitMinutes[key] : 1;
-  return factor === undefined ? null : n * factor;
+  return n * (unitMinutes.get(key) ?? 1);
 }
 function row(
   data: Record<string, unknown>,
@@ -81,7 +78,7 @@ export function parseKimi(value: unknown, at: number): Observation {
     const reading = row(detail, `limit-${index}`, label, at, span);
     if (reading) readings.push(reading);
   });
-  const summary = row(object(payload.usage), "summary", "Weekly limit", at, null);
+  const summary = row(object(payload.usage), "summary", "Weekly limit", at, 10080);
   if (summary) readings.push(summary);
   if (!readings.length) throw new Error("invalid quota");
   return observe(at, readings);

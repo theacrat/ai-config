@@ -69,7 +69,7 @@ try {
     throw new Error(code);
   }
   const snapshot = snapshotSchema.parse(await response.json());
-  if (snapshot.accounts.some((a) => a.provider in providers && a.live?.status !== "fresh"))
+  if (snapshot.accounts.some((a) => providers.has(a.provider) && a.live?.status !== "fresh"))
     throw new Error("live-quota-failed");
   console.log(
     JSON.stringify(
@@ -83,7 +83,7 @@ try {
         liveFresh: snapshot.accounts.filter((a) => a.live?.status === "fresh").length,
         liveFailed: snapshot.accounts.filter((a) => a.live?.status === "error").length,
         freshByProvider: Object.fromEntries(
-          Object.keys(providers).map((id) => [
+          [...providers.keys()].map((id) => [
             id,
             snapshot.accounts.filter((a) => a.provider === id && a.live?.status === "fresh").length,
           ]),

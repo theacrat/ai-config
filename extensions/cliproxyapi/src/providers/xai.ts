@@ -1,5 +1,6 @@
 import {
   first,
+  firstText,
   instant,
   list,
   LiveError,
@@ -49,11 +50,9 @@ export function parseXaiBilling(value: unknown): Reading[] {
   const limit = cents(first(config.monthlyLimit, config.monthly_limit));
   const used = cents(config.used);
   const cap = cents(first(config.onDemandCap, config.on_demand_cap));
-  if (limit === null && used === null) return readings;
-  const span = period(
-    first(config.billingPeriodStart, config.billing_period_start),
-    first(config.billingPeriodEnd, config.billing_period_end),
-  );
+  const end = first(config.billingPeriodEnd, config.billing_period_end);
+  if (limit === null && used === null && cap === null && !end) return readings;
+  const span = period(first(config.billingPeriodStart, config.billing_period_start), end);
   const included = used === null ? null : limit ? Math.min(used, limit) : used;
   readings.push({
     id: "monthly",
@@ -75,15 +74,18 @@ export function parseXaiBilling(value: unknown): Reading[] {
   return readings;
 }
 
-function userId(account: PrivateAccount): string | null {
-  const file = account.file;
+function userId({ file }: PrivateAccount): string | null {
   const metadata = object(file.metadata);
   const attributes = object(file.attributes);
-  for (const source of [file, metadata, attributes, object(file.oauth), object(metadata.oauth)]) {
-    const id = first(source.sub, source.subject, source.user_id, source.userId);
-    if (typeof id === "string" && id.trim()) return id.trim();
-  }
-  return null;
+  const oauth = object(first(file.oauth, metadata.oauth, attributes.oauth));
+  const user = object(first(file.user, metadata.user, attributes.user));
+  return firstText(
+    ...[file, metadata, attributes].flatMap((s) => [s.sub, s.subject, s.user_id, s.userId]),
+    oauth.sub,
+    oauth.subject,
+    user.sub,
+    user.id,
+  );
 }
 
 export const xai: Provider = {
@@ -108,7 +110,7 @@ export const xai: Provider = {
       .filter((reading, index, all) => all.findIndex((r) => r.id === reading.id) === index);
     if (readings.length) return { observation: observe(Date.now(), readings) };
     const failure = results.find((result) => result.status === "rejected");
-    if (failure && results.every((result) => result.status === "rejected")) throw failure.reason;
+    if (failure) throw failure.reason;
     throw new LiveError("No billing quota reported (paid API accounts have none)");
   },
 };

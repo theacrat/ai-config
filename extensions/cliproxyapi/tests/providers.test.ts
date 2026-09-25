@@ -89,7 +89,7 @@ describe("provider payloads", () => {
         limitId: "summary",
         label: "Weekly limit",
         usedPercent: 25,
-        minutes: null,
+        minutes: 10080,
         resetAt: 1893456000000,
       },
     ]);
@@ -180,6 +180,21 @@ describe("provider payloads", () => {
       ["on-demand", 25],
     ]);
     expect(parseXaiBilling({ config: {} })).toEqual([]);
+    expect(
+      parseXaiBilling({ config: { onDemandCap: 1000 } }).map((r) => [r.id, r.usedPercent]),
+    ).toEqual([
+      ["monthly", null],
+      ["on-demand", null],
+    ]);
+  });
+  it("accepts unix resets in seconds or milliseconds", () => {
+    expect(
+      [1893456000, 1893456000000].map(
+        (resets_at) =>
+          parseMeta({ subs_usage: { weekly: { used_percent: 1, resets_at } } }, 0).windows[0]
+            ?.resetAt,
+      ),
+    ).toEqual([1893456000000, 1893456000000]);
   });
 });
 
@@ -213,6 +228,9 @@ describe("provider registry through CPA api-call", () => {
         config: { creditUsagePercent: 3 },
       },
       "https://cli-chat-proxy.grok.com/v1/billing": { config: {} },
+      "https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary": {
+        groups: [{ buckets: [{ remainingFraction: 1 }] }],
+      },
     };
     const server = createServer(async (req, res) => {
       if (req.url === "/v0/management/auth-files") {
@@ -225,6 +243,8 @@ describe("provider registry through CPA api-call", () => {
               { auth_index: "m", name: "meta private.json", provider: "meta" },
               { auth_index: "x", name: "x.json", provider: "Grok", sub: "user-7" },
               { auth_index: "q", name: "q.json", provider: "qwen" },
+              { auth_index: "p", name: "p.json", provider: "constructor" },
+              { auth_index: "a", name: "ag.json", provider: "antigravity" },
             ],
           }),
         );
@@ -232,7 +252,13 @@ describe("provider registry through CPA api-call", () => {
       }
       if (req.url?.startsWith("/v0/management/auth-files/download")) {
         downloads.push(req.url);
-        res.end(JSON.stringify({ dca_token: "dca:meta-secret" }));
+        res.end(
+          JSON.stringify(
+            req.url.endsWith("ag.json")
+              ? { installed: { project_id: "downloaded-project" } }
+              : { dca_token: "dca:meta-secret" },
+          ),
+        );
         return;
       }
       let raw = "";
@@ -257,8 +283,14 @@ describe("provider registry through CPA api-call", () => {
       ["meta", "fresh"],
       ["xai", "fresh"],
       ["qwen", "unsupported"],
+      ["constructor", "unsupported"],
+      ["antigravity", "fresh"],
     ]);
-    expect(downloads).toEqual(["/v0/management/auth-files/download?name=meta%20private.json"]);
+    expect(downloads.sort()).toEqual([
+      "/v0/management/auth-files/download?name=ag.json",
+      "/v0/management/auth-files/download?name=meta%20private.json",
+    ]);
+    expect(calls.find((c) => c.authIndex === "a")?.data).toBe('{"project":"downloaded-project"}');
     expect(calls.find((c) => c.authIndex === "m")?.header.Authorization).toBe(
       "Bearer dca:meta-secret",
     );
@@ -266,7 +298,7 @@ describe("provider registry through CPA api-call", () => {
     expect(calls.find((c) => c.authIndex === "x")?.header["x-userid"]).toBe("user-7");
     expect(calls.filter((c) => c.authIndex === "q")).toEqual([]);
     const serialised = JSON.stringify(snapshot);
-    for (const secret of ["meta-secret", "meta-echo-secret", "user-7"])
+    for (const secret of ["meta-secret", "meta-echo-secret", "user-7", "downloaded-project"])
       expect(serialised).not.toContain(secret);
   });
 });

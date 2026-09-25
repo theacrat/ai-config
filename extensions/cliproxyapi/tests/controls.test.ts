@@ -105,6 +105,10 @@ async function fixture() {
         );
         return;
       }
+      if (req.url?.startsWith("/v0/management/auth-files/download")) {
+        res.end(JSON.stringify({}));
+        return;
+      }
       let raw = "";
       for await (const chunk of req) raw += String(chunk);
       const body: unknown = JSON.parse(raw);

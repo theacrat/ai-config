@@ -7,12 +7,12 @@ import { meta } from "./meta";
 import type { Provider } from "./shared";
 import { xai } from "./xai";
 
-export const providers: Record<string, Provider | undefined> = {
-  antigravity,
-  claude,
-  codex,
-  devin,
-  kimi,
-  meta,
-  xai,
-};
+export const providers = new Map<string, Provider>([
+  ["antigravity", antigravity],
+  ["claude", claude],
+  ["codex", codex],
+  ["devin", devin],
+  ["kimi", kimi],
+  ["meta", meta],
+  ["xai", xai],
+]);

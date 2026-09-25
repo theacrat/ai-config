@@ -1,5 +1,6 @@
 import type { Observation } from "../snapshot";
 import {
+  firstText,
   instant,
   list,
   LiveError,
@@ -9,6 +10,7 @@ import {
   text,
   tokenHeader,
   type Provider,
+  type ProviderContext,
   type Reading,
 } from "./shared";
 
@@ -55,11 +57,38 @@ const domains = [
   "cloudcode-pa.googleapis.com",
 ];
 
+async function projectId({ account, download }: ProviderContext): Promise<string | null> {
+  const { file } = account;
+  const metadata = object(file.metadata);
+  const attributes = object(file.attributes);
+  const listed = firstText(
+    file.project_id,
+    file.projectId,
+    metadata.project_id,
+    metadata.projectId,
+    attributes.project_id,
+    attributes.projectId,
+    attributes.gemini_virtual_project,
+  );
+  if (listed) return listed;
+  const stored = object(await download().catch(() => null));
+  const installed = object(stored.installed);
+  const web = object(stored.web);
+  return firstText(
+    stored.project_id,
+    stored.projectId,
+    installed.project_id,
+    installed.projectId,
+    web.project_id,
+    web.projectId,
+  );
+}
+
 export const antigravity: Provider = {
-  async read({ account, call }) {
-    const project = account.file.project_id;
-    if (typeof project !== "string" || !project)
-      throw new LiveError("Project ID missing from CPA listing");
+  async read(context) {
+    const { call, signal } = context;
+    const project = await projectId(context);
+    if (!project) throw new LiveError("Project ID missing from CPA listing");
     let failure: unknown;
     for (const domain of domains) {
       try {
@@ -76,6 +105,7 @@ export const antigravity: Provider = {
         return { observation: parseAntigravity(payload, Date.now()) };
       } catch (error) {
         failure = error;
+        if (signal.aborted) break;
       }
     }
     throw failure;
