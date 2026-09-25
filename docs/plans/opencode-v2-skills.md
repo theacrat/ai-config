@@ -49,8 +49,14 @@ work and must be preserved.
 
 - Grounding complete. Existing installation targets five applications and writes
   shared discovery directories, producing duplicate sources in V2.
-- Installer replaced and verified with 18 temporary-home tests.
+- Installer replaced and verified with 23 temporary-home tests, including moved
+  checkouts and rollback after link or state-write failures.
 - First-party research and hidden-skill native activation proof recorded in
   `docs/research/opencode-v2-skill-discovery.md`.
-- Plugin implementation and isolated runtime verification are in progress.
-- Runtime verification and independent review pending.
+- Native plugin passes 10 tests. On OpenCode 2.0.15, the integrated checkout
+  registers 99 managed skills and advertises two. Hidden native loading,
+  supporting source files, and project override precedence pass the isolated
+  runtime check.
+- Model discovery now supports V2 only. All 27 tests and the isolated live
+  discovery and inference check pass.
+- Captured model-request verification and final independent review are pending.

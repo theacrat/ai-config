@@ -66,6 +66,10 @@ Skill bodies and supporting files load when requested. Adding another source
 skill does not add another description to every model request. Explicit skill
 selection remains available in clients that expose it.
 
+Search exposes managed names and descriptions, including skills denied by a
+native loading rule. It never returns their bodies. See the
+[search permission contract](plugins/skill-manager/README.md#search-and-permissions).
+
 See the [design note](docs/plans/opencode-v2-skills.md) and
 [runtime research](docs/research/opencode-v2-skill-discovery.md), including the
 [V2 skill documentation](https://opencode.ai/v2/docs/skills).
