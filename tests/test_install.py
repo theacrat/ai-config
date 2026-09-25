@@ -195,6 +195,93 @@ class InstallerTest(unittest.TestCase):
             str(self.root / "user-plugin"),
         )
 
+    def test_moved_checkout_retargets_exact_recorded_links(self) -> None:
+        self.run_install()
+        old_links = dict(self.paths.links)
+        moved = self.root / "moved-repo"
+        self.checkout.rename(moved)
+        self.paths = install.Paths(
+            moved, self.home, self.paths.xdg_config, self.paths.data_root
+        )
+        self.assertEqual(self.run_install(), 0)
+        self.assertEqual(self.check(), 0)
+        for path, old_target in old_links.items():
+            self.assertEqual(os.readlink(self.backups()[str(path)]), str(old_target))
+            self.assertEqual(os.readlink(path), str(self.paths.links[path]))
+
+    def test_recorded_wrong_role_does_not_authorise_retarget(self) -> None:
+        destination = next(iter(self.paths.links))
+        target = self.root / "unrelated"
+        self.link(destination, target)
+        self.state({"version": 2, "managed_links": {str(destination): str(target)}})
+        before = self.snapshot()
+        with self.assertRaisesRegex(install.InstallError, "--replace"):
+            self.run_install()
+        self.assertEqual(before, self.snapshot())
+
+    def prepare_replacement(self) -> tuple[Path, Path, bytes]:
+        destination = next(iter(self.paths.links))
+        self.write(destination / "user.txt", "user content")
+        stale = self.link(
+            self.home / ".agents/skills/example", self.checkout / "skills/example"
+        )
+        self.state({"version": 1, "managed_paths": [str(stale)]})
+        return destination, stale, self.paths.state_file.read_bytes()
+
+    def assert_rolled_back(self, destination: Path, stale: Path, state: bytes) -> None:
+        self.assertEqual((destination / "user.txt").read_text(), "user content")
+        self.assertEqual(os.readlink(stale), str(self.checkout / "skills/example"))
+        self.assertFalse(
+            install.exists(self.paths.xdg_config / "opencode/agents/pstack")
+        )
+        self.assertEqual(self.paths.state_file.read_bytes(), state)
+        backups = self.backups()
+        self.assertEqual(
+            (backups[str(destination)] / "user.txt").read_text(), "user content"
+        )
+        self.assertEqual(os.readlink(backups[str(stale)]), os.readlink(stale))
+
+    def test_second_symlink_failure_rolls_back_and_keeps_backups(self) -> None:
+        destination, stale, state = self.prepare_replacement()
+        symlink = Path.symlink_to
+        calls = 0
+
+        def fail_second(path: Path, target: Path, **kwargs: object) -> None:
+            nonlocal calls
+            calls += 1
+            if calls == 2:
+                raise OSError("injected second link failure")
+            symlink(path, target, **kwargs)
+
+        with patch.object(Path, "symlink_to", fail_second):
+            with self.assertRaisesRegex(install.InstallError, "rolled back"):
+                self.run_install(True)
+        self.assert_rolled_back(destination, stale, state)
+        self.assertEqual(self.run_install(True), 0)
+        self.assertEqual(self.check(), 0)
+
+    def test_state_failure_rolls_back_links_and_previous_state(self) -> None:
+        destination, stale, state = self.prepare_replacement()
+        write_json = install.write_json
+
+        def fail_state(path: Path, value: object) -> None:
+            write_json(path, value)
+            if path == self.paths.state_file:
+                raise OSError("injected state failure after write")
+
+        with patch.object(install, "write_json", fail_state):
+            with self.assertRaisesRegex(install.InstallError, "rolled back"):
+                self.run_install(True)
+        self.assert_rolled_back(destination, stale, state)
+
+    def test_fresh_install_state_failure_removes_new_links_and_state(self) -> None:
+        with patch.object(install, "write_json", side_effect=OSError("state failure")):
+            with self.assertRaisesRegex(install.InstallError, "rolled back"):
+                self.run_install()
+        self.assertFalse(self.paths.state_file.exists())
+        for path in self.paths.links:
+            self.assertFalse(install.exists(path))
+
     def test_changed_v1_skill_requires_replace(self) -> None:
         destination = self.link(
             self.home / ".agents/skills/example", self.root / "user-skill"

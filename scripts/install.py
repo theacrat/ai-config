@@ -218,6 +218,30 @@ class Backup:
         self.manifest.append({"original": str(path), "backup": str(destination)})
         write_json(self.root / "manifest.json", self.manifest)
 
+    def restore(self) -> None:
+        for item in reversed(self.manifest):
+            original = Path(item["original"])
+            saved = Path(item["backup"])
+            if saved.is_symlink():
+                os.symlink(os.readlink(saved), original)
+            elif saved.is_dir():
+                shutil.copytree(saved, original, symlinks=True)
+            else:
+                shutil.copy2(saved, original)
+
+
+def restore_state(path: Path, content: bytes | None) -> None:
+    if content is None:
+        path.unlink(missing_ok=True)
+        return
+    with tempfile.NamedTemporaryFile(dir=path.parent, delete=False) as handle:
+        temporary = Path(handle.name)
+        handle.write(content)
+    try:
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
 
 def install(paths: Paths, replace: bool = False) -> int:
     names = validate_sources(paths)
@@ -239,25 +263,56 @@ def install(paths: Paths, replace: bool = False) -> int:
             and path.name == "pstack"
             and expected_link(path, paths.data_root / "pstack/agents")
         )
-        (moves if old_agents or replace else conflicts).append(path)
+        recorded = prior.get(path)
+        role = source.relative_to(paths.checkout).parts
+        old_registration = (
+            version == 2
+            and recorded is not None
+            and recorded.is_absolute()
+            and ".." not in recorded.parts
+            and recorded.parts[-len(role) :] == role
+            and expected_link(path, recorded)
+        )
+        (moves if old_agents or old_registration or replace else conflicts).append(path)
     if conflicts:
         raise InstallError(
             "conflicting existing paths (use --replace to back them up):\n"
             + "\n".join(str(p) for p in conflicts)
         )
     backup = Backup(paths)
-    for path in sorted(set(moves)):
-        backup.move(path)
-    for path, source in paths.links.items():
-        if not expected_link(path, source):
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.symlink_to(source, target_is_directory=True)
-    state = {
-        "version": 2,
-        "managed_links": {str(p): str(t) for p, t in paths.links.items()},
-    }
-    if version != 2 or prior != paths.links:
-        write_json(paths.state_file, state)
+    created: list[Path] = []
+    previous_state = (
+        paths.state_file.read_bytes() if paths.state_file.exists() else None
+    )
+    state_attempted = False
+    try:
+        for path in sorted(set(moves)):
+            backup.move(path)
+        for path, source in paths.links.items():
+            if not expected_link(path, source):
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.symlink_to(source, target_is_directory=True)
+                created.append(path)
+        state = {
+            "version": 2,
+            "managed_links": {str(p): str(t) for p, t in paths.links.items()},
+        }
+        if version != 2 or prior != paths.links:
+            state_attempted = True
+            write_json(paths.state_file, state)
+    except Exception as exc:
+        try:
+            for path in reversed(created):
+                path.unlink()
+            backup.restore()
+            if state_attempted:
+                restore_state(paths.state_file, previous_state)
+        except OSError as rollback_error:
+            raise InstallError(
+                f"installation failed: {exc}; rollback failed: {rollback_error}; "
+                f"recover saved entries from {backup.root}"
+            ) from exc
+        raise InstallError(f"installation failed and was rolled back: {exc}") from exc
     print("registered skill manager and pstack agents for OpenCode V2")
     if backup.root:
         print(f"previous entries backed up at {backup.root}")
