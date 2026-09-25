@@ -1,0 +1,4 @@
+decision	reason	evidence	result
+Use native skill transform with autoinvoke false	Bound prompt metadata without replacing permission-aware loading	https://opencode.ai/v2/docs/skills	Implementation in progress
+Keep source bundles in checkout	Relative docs and scripts remain available	plugins/pstack/pstack layout	Installer links native plugin and agents only
+Limit migration to owned OpenCode-visible links	Old multi-app state must not authorise unrelated filesystem changes	scripts/install.py version 1 state	Temporary-home migration tests required
