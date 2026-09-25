@@ -19,6 +19,13 @@ if git diff --cached --name-only | grep -q '^plugins/skill-manager/'; then
   )
 fi
 
+if git diff --cached --name-only | grep -q '^plugins/model-discovery/'; then
+  (
+    cd "$root/plugins/model-discovery"
+    bun run check
+  )
+fi
+
 if git diff --cached --name-only | grep -q '^extensions/cliproxyapi/'; then
   cd "$(git rev-parse --show-toplevel)/extensions/cliproxyapi"
   bun run typecheck
