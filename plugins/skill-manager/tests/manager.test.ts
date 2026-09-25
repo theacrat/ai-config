@@ -26,6 +26,7 @@ afterEach(() =>
 		.forEach((path) => rmSync(path, { recursive: true, force: true })),
 );
 function fixture() {
+	mkdirSync("/tmp/opencode", { recursive: true });
 	const root = mkdtempSync("/tmp/opencode/skill-manager-test-");
 	temporary.push(root);
 	writeFileSync(join(root, "sources.json"), '{"skills":[]}');
