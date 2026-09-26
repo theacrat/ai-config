@@ -262,7 +262,10 @@ def verify(args, root):
         results = json.loads(tool_messages[-1]["content"])
         require(0 < len(results) <= 10, f"Unbounded or empty search result: {results}")
         require(
-            all(set(entry) == {"id", "name", "description"} for entry in results),
+            all(
+                set(entry) <= {"id", "name", "description", "group"}
+                for entry in results
+            ),
             "Search returned more than skill metadata",
         )
         evidence = {
@@ -274,7 +277,8 @@ def verify(args, root):
             json.dumps(evidence, indent=2) + "\n"
         )
         print(
-            f"PASS: real outgoing context captured; {len(managed)} managed descriptions absent; router tool invoked locally"
+            f"PASS: real outgoing context captured; {len(descriptions)} hidden "
+            f"descriptions absent; router tool invoked locally"
         )
 
 

@@ -49,8 +49,19 @@ def main():
             "service, and open this checkout in OpenChamber before checking."
         )
     advertised = [skill["id"] for skill in managed if skill.get("autoinvoke", True)]
-    if len(advertised) > 2:
-        raise SystemExit(f"Unbounded managed catalogue: {advertised}")
+    service = [
+        skill["id"]
+        for skill in managed
+        if skill.get("autoinvoke", True)
+        and (
+            "plugins/cloudflare" in skill.get("path", "")
+            or "plugins/1password" in skill.get("path", "")
+        )
+    ]
+    if service:
+        raise SystemExit(
+            f"Service sections advertised outside a relevant project: {service}"
+        )
     ids = {skill["id"] for skill in skills}
     if "skill-discovery" not in ids:
         raise SystemExit("The skill discovery entry is missing.")
