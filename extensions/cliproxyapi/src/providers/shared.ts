@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { Account, Observation } from "../snapshot";
+import type { CallOptions } from "../upstream";
 
 const record = z.record(z.string(), z.unknown());
 export function object(value: unknown): Record<string, unknown> {
@@ -82,7 +83,7 @@ type ProviderRequest = {
 export type ProviderContext = {
   account: PrivateAccount;
   signal: AbortSignal;
-  call(request: ProviderRequest, consume?: boolean): Promise<unknown>;
+  call(request: ProviderRequest, options?: CallOptions): Promise<unknown>;
   download(): Promise<unknown>;
 };
 export type Provider = {
