@@ -5,9 +5,9 @@ entries and skills from personal, pstack, 1Password and Cloudflare source direct
 Manifest names are canonical IDs, including aliases whose upstream folders differ.
 Original absolute `SKILL.md` paths preserve native relative-resource loading.
 
-Only `skill-discovery` and enabled `thea-mode` advertise everywhere. All other
-managed skills are sectioned into groups and advertise only in projects where
-their section is relevant, so native explicit ID loading and OpenChamber's
+Only `skill-discovery` and enabled `thea-mode` advertise alongside the
+generic sections. Service skills stay registered with `autoinvoke: false`
+outside relevant projects, so native explicit ID loading and OpenChamber's
 skill/slash catalogue remain available without bloating every prompt. The
 discovery guide directs the agent to load personal guidance and its required
 skills natively. This is an instruction to the model, not guaranteed automatic
@@ -27,10 +27,13 @@ Each managed skill belongs to one group, derived from its source root:
 | `workflow`    | pstack skills                                   |
 | `personal`    | `personal/skills`                               |
 
-A project's relevant sections are detected from its files: `wrangler.toml`
+A project's relevant sections are the generic sections plus whatever is
+detected from its files: `wrangler.toml`
 selects `cloudflare`, `package.json` dependencies select `cloudflare` or
-`frontend`, `.env` selects `1password`, and so on. To force sections for a
-project, create `.opencode/skill-groups.json` with
+`frontend`, `.env` selects `1password`, and so on. Generic sections
+(engineering, frontend, testing, workflow, personal) advertise everywhere;
+service sections (cloudflare, 1password) only where relevant. To force
+sections for a project, create `.opencode/skill-groups.json` with
 `{"groups": ["cloudflare"]}` using any of the names above; it unions with
 auto-detection. Sections refresh with the catalogue every 30 seconds.
 

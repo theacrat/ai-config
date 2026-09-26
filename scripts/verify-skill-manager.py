@@ -217,9 +217,18 @@ def verify(args, root):
             for s in managed
             if s.get("description") and s.get("autoinvoke") is not False
         ]
+        service = [
+            s
+            for s in advertised
+            if "plugins/cloudflare" in s["path"] or "plugins/1password" in s["path"]
+        ]
         require(
-            len(advertised) <= 2,
-            f"Bare project advertises more than bootstraps: {[s['id'] for s in advertised]}",
+            not service,
+            f"Service sections advertised in a bare project: {[s['id'] for s in service]}",
+        )
+        require(
+            len(advertised) >= 80,
+            f"Generic sections missing from a bare project: {len(advertised)} advertised",
         )
         cloud = root / "cloudflare-project"
         cloud.mkdir()

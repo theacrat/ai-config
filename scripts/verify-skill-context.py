@@ -277,7 +277,8 @@ def verify(args, root):
             json.dumps(evidence, indent=2) + "\n"
         )
         print(
-            f"PASS: real outgoing context captured; {len(managed)} managed descriptions absent; router tool invoked locally"
+            f"PASS: real outgoing context captured; {len(descriptions)} hidden "
+            f"descriptions absent; router tool invoked locally"
         )
 
 

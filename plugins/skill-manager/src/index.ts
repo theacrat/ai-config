@@ -2,7 +2,9 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
 import { Plugin } from "@opencode/plugin";
+import type { SkillGroup } from "./manager";
 import {
+	DEFAULT_GROUPS,
 	applyCatalogue,
 	checkoutRoot,
 	groupFor,
@@ -25,7 +27,10 @@ export default Plugin.define({
 		);
 		let catalogue = loadCatalogue(checkout);
 		const projectDir = ctx.location.project.directory ?? ctx.location.directory;
-		let relevant = relevantGroups(projectDir);
+		let relevant = new Set<SkillGroup>([
+			...DEFAULT_GROUPS,
+			...relevantGroups(projectDir),
+		]);
 		const ownedPaths = new Set(managedPaths(catalogue, checkout, legacyBundle));
 		const skill = await ctx.skill.transform((editor) =>
 			applyCatalogue(editor, catalogue, ownedPaths, checkout, relevant),
@@ -63,7 +68,10 @@ export default Plugin.define({
 		const timer = setInterval(() => {
 			try {
 				const next = loadCatalogue(checkout);
-				const nextRelevant = relevantGroups(projectDir);
+				const nextRelevant = new Set<SkillGroup>([
+					...DEFAULT_GROUPS,
+					...relevantGroups(projectDir),
+				]);
 				if (
 					JSON.stringify(next) === JSON.stringify(catalogue) &&
 					JSON.stringify([...nextRelevant].sort()) ===

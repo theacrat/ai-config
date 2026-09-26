@@ -39,6 +39,16 @@ export const SKILL_GROUPS = [
 ] as const;
 export type SkillGroup = (typeof SKILL_GROUPS)[number];
 
+// Generic sections advertise in every project. Service sections (cloudflare,
+// 1password) advertise only where detected or explicitly enabled.
+export const DEFAULT_GROUPS: readonly SkillGroup[] = [
+	"engineering",
+	"frontend",
+	"testing",
+	"workflow",
+	"personal",
+];
+
 export function groupFor(checkout: string, path: string): SkillGroup {
 	const relative = resolve(path).startsWith(resolve(checkout) + sep)
 		? resolve(path).slice(resolve(checkout).length + 1)

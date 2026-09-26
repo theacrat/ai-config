@@ -11,6 +11,7 @@ import { dirname, join } from "node:path";
 import { Skill } from "@opencode/plugin";
 import type { SkillEditor } from "@opencode/plugin/promise/skill";
 import {
+	DEFAULT_GROUPS,
 	applyCatalogue,
 	checkoutRoot,
 	detectRelevantGroups,
@@ -312,6 +313,13 @@ describe("skill groups", () => {
 		expect(relevantGroups(project)).toEqual(
 			new Set(["cloudflare", "frontend", "1password"]),
 		);
+	});
+	it("keeps service sections out of the defaults", () => {
+		expect([...DEFAULT_GROUPS].sort()).toEqual(
+			["engineering", "frontend", "personal", "testing", "workflow"].sort(),
+		);
+		expect(DEFAULT_GROUPS).not.toContain("cloudflare");
+		expect(DEFAULT_GROUPS).not.toContain("1password");
 	});
 	it("advertises only relevant groups while keeping the rest loadable", () => {
 		const root = fixture();
