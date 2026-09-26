@@ -5,6 +5,7 @@ import {
   firstText,
   instant,
   list,
+  LiveError,
   numeric,
   object,
   observe,
@@ -134,6 +135,10 @@ export const xai: Provider = {
     if (readings.length) return { observation: observe(Date.now(), readings) };
     for (const result of results)
       if (result.status === "rejected" && !(result.reason instanceof Rejected)) throw result.reason;
-    return { observation: await paidHealth(call) };
+    try {
+      return { observation: await paidHealth(call) };
+    } catch {
+      throw new LiveError("No billing quota reported and paid API check failed");
+    }
   },
 };
