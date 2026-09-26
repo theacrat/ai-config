@@ -31,17 +31,20 @@ export function parseAntigravity(value: unknown, at: number): Observation {
         if (fraction === null || !Number.isFinite(fraction) || fraction > 1) return;
         const window = text(bucket.window);
         const period = window.trim().toLowerCase();
+        const minutes = ["5h", "five-hour", "five_hour"].includes(period)
+          ? 300
+          : ["weekly", "week"].includes(period)
+            ? 10080
+            : null;
         readings.push({
           id: `${index}:${label}:${text(bucket.bucketId ?? bucket.bucket_id, String(bucketIndex))}`,
-          label: `${label} · ${text(bucket.displayName ?? bucket.display_name, window || `Bucket ${bucketIndex + 1}`)}`,
+          label: minutes
+            ? label
+            : `${label} · ${text(bucket.displayName ?? bucket.display_name, window || `Bucket ${bucketIndex + 1}`)}`,
           description: [text(group.description), text(bucket.description)]
             .filter(Boolean)
             .join(" · "),
-          minutes: ["5h", "five-hour", "five_hour"].includes(period)
-            ? 300
-            : ["weekly", "week"].includes(period)
-              ? 10080
-              : null,
+          minutes,
           usedPercent: (1 - fraction) * 100,
           resetAt: instant(bucket.resetTime ?? bucket.reset_time),
         });
