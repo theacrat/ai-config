@@ -105,7 +105,7 @@ for (const account of snapshot.accounts) {
         windows: [
           {
             limitId: "premium-weekly",
-            label: "Premium · Weekly",
+            label: "Premium",
             description: "Shared premium models",
             usedPercent: 25,
             minutes: 10080,

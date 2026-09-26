@@ -274,6 +274,7 @@ describe("provider parsing", () => {
       1700000000000,
     );
     expect(parsed.windows.map((w) => w.usedPercent)).toEqual([25, 80]);
+    expect(parsed.windows.map((w) => w.label)).toEqual(["Premium", "Standard · DAILY"]);
     expect(parsed.windows.map((w) => w.resetAt)).toEqual([1893456000000, 1924992000000]);
     expect(parsed.windows.map((w) => w.description)).toEqual(["Shared models", "Other models"]);
     expect(parsed.windows[0]?.limitId).not.toBe(parsed.windows[1]?.limitId);
