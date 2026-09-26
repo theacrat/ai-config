@@ -180,7 +180,7 @@ export const codex: Provider = {
         header: headers(account),
         data: JSON.stringify({ redeem_request_id: randomUUID() }),
       },
-      true,
+      { consume: true },
     );
   },
 };

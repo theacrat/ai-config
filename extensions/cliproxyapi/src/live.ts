@@ -11,8 +11,8 @@ export function context(
   return {
     account,
     signal,
-    call: (request, consume) =>
-      apiCall(config, { authIndex: account.authIndex, ...request }, signal, consume),
+    call: (request, options) =>
+      apiCall(config, { authIndex: account.authIndex, ...request }, signal, options),
     download: () =>
       management(config, `auth-files/download?name=${encodeURIComponent(account.name)}`, {
         signal,

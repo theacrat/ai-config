@@ -86,8 +86,10 @@ Account errors and active cooldowns stay visible.
   in the private CPA listing; missing projects produce an account-level error.
   Meta's quota endpoint needs the credential file's `dca_token`, so the service
   downloads that file through CPA's management API for each read. The token is
-  used for the one request and never leaves the service. Paid xAI API accounts
-  report no billing quota and show an account-level note.
+  used for the one request and never leaves the service. xAI accounts with no billing data (paid API
+  accounts) get a health check instead. It sends a one-token `grok-4.5` chat request
+  on each read, which costs a tiny amount, and shows the account as a working
+  paid API account.
 - **Enable / Disable** changes the account's CPA status. **Refresh credentials**
   asks CPA to refresh that account's credentials. Raw credentials stay server-side.
 - **Use banked reset** appears for Codex (the only provider with banked resets) and is enabled when available credits are

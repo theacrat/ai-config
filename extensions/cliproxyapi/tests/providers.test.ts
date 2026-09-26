@@ -243,6 +243,7 @@ describe("provider registry through CPA api-call", () => {
               { auth_index: "m", name: "meta private.json", provider: "meta" },
               { auth_index: "x", name: "x.json", provider: "Grok", sub: "user-7" },
               { auth_index: "q", name: "q.json", provider: "qwen" },
+              { auth_index: "xp", name: "xp.json", provider: "xai" },
               { auth_index: "p", name: "p.json", provider: "constructor" },
               { auth_index: "a", name: "ag.json", provider: "antigravity" },
             ],
@@ -265,7 +266,13 @@ describe("provider registry through CPA api-call", () => {
       for await (const chunk of req) raw += String(chunk);
       const call = callSchema.parse(JSON.parse(raw));
       calls.push(call);
-      res.end(JSON.stringify({ status_code: 200, body: JSON.stringify(bodies[call.url] ?? {}) }));
+      const paidBilling = call.authIndex === "xp" && call.url.includes("grok.com");
+      res.end(
+        JSON.stringify({
+          status_code: paidBilling ? 403 : 200,
+          body: JSON.stringify(bodies[call.url] ?? {}),
+        }),
+      );
     });
     servers.push(server);
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -283,6 +290,7 @@ describe("provider registry through CPA api-call", () => {
       ["meta", "fresh"],
       ["xai", "fresh"],
       ["qwen", "unsupported"],
+      ["xai", "fresh"],
       ["constructor", "unsupported"],
       ["antigravity", "fresh"],
     ]);
@@ -297,6 +305,20 @@ describe("provider registry through CPA api-call", () => {
     expect(calls.find((c) => c.authIndex === "d")?.data).toContain('"apiKey":"$TOKEN$"');
     expect(calls.find((c) => c.authIndex === "x")?.header["x-userid"]).toBe("user-7");
     expect(calls.filter((c) => c.authIndex === "q")).toEqual([]);
+    expect(calls.filter((c) => c.authIndex === "x").map((c) => c.url)).not.toContain(
+      "https://api.x.ai/v1/chat/completions",
+    );
+    const probe = calls.find((c) => c.authIndex === "xp" && c.url.includes("api.x.ai"));
+    expect(probe).toMatchObject({
+      method: "POST",
+      url: "https://api.x.ai/v1/chat/completions",
+      header: { Authorization: "Bearer $TOKEN$" },
+    });
+    expect(JSON.parse(probe?.data ?? "{}")).toMatchObject({ model: "grok-4.5", max_tokens: 1 });
+    expect(snapshot.accounts.find((a) => a.id === "xp")?.live?.observation).toMatchObject({
+      windows: [],
+      limits: [{ id: "paid-api", name: "Paid API", allowed: true, limitReached: false }],
+    });
     const serialised = JSON.stringify(snapshot);
     for (const secret of ["meta-secret", "meta-echo-secret", "user-7", "downloaded-project"])
       expect(serialised).not.toContain(secret);

@@ -1,3 +1,4 @@
+import type { Observation } from "../snapshot";
 import {
   first,
   firstText,
@@ -11,6 +12,7 @@ import {
   tokenHeader,
   type PrivateAccount,
   type Provider,
+  type ProviderContext,
   type Reading,
 } from "./shared";
 
@@ -88,6 +90,27 @@ function userId({ file }: PrivateAccount): string | null {
   );
 }
 
+async function paidHealth(call: ProviderContext["call"]): Promise<Observation> {
+  await call(
+    {
+      method: "POST",
+      url: "https://api.x.ai/v1/chat/completions",
+      header: { ...tokenHeader, accept: "application/json", "Content-Type": "application/json" },
+      data: JSON.stringify({
+        model: "grok-4.5",
+        messages: [{ role: "user", content: "ping" }],
+        max_tokens: 1,
+        stream: false,
+      }),
+    },
+    { timeout: 15000 },
+  );
+  return {
+    ...observe(Date.now(), []),
+    limits: [{ id: "paid-api", name: "Paid API", allowed: true, limitReached: false }],
+  };
+}
+
 export const xai: Provider = {
   async read({ account, call }) {
     const id = userId(account);
@@ -110,7 +133,11 @@ export const xai: Provider = {
       .filter((reading, index, all) => all.findIndex((r) => r.id === reading.id) === index);
     if (readings.length) return { observation: observe(Date.now(), readings) };
     const failure = results.find((result) => result.status === "rejected");
-    if (failure) throw failure.reason;
-    throw new LiveError("No billing quota reported (paid API accounts have none)");
+    try {
+      return { observation: await paidHealth(call) };
+    } catch {
+      if (failure) throw failure.reason;
+      throw new LiveError("No billing quota reported");
+    }
   },
 };

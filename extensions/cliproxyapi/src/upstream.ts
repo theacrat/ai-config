@@ -17,7 +17,13 @@ export type Connection = { baseUrl: string; managementKey: string };
 export async function management(
   config: Connection,
   path: string,
-  options: { method?: string; body?: unknown; signal?: AbortSignal; discard?: boolean } = {},
+  options: {
+    method?: string;
+    body?: unknown;
+    signal?: AbortSignal;
+    discard?: boolean;
+    timeout?: number;
+  } = {},
 ): Promise<unknown> {
   const response = await fetch(new URL(`/v0/management/${path}`, config.baseUrl), {
     method: options.method ?? "GET",
@@ -29,7 +35,7 @@ export async function management(
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
     redirect: "error",
     signal: options.signal
-      ? AbortSignal.any([options.signal, AbortSignal.timeout(3500)])
+      ? AbortSignal.any([options.signal, AbortSignal.timeout(options.timeout ?? 3500)])
       : AbortSignal.timeout(8000),
   }).catch(() => {
     throw new ServiceError("upstream-unavailable");
@@ -75,6 +81,7 @@ export async function management(
     throw new ServiceError("invalid-response");
   }
 }
+export type CallOptions = { consume?: boolean; timeout?: number };
 const envelope = z.object({ status_code: z.number().int(), body: z.string() });
 export async function apiCall(
   config: Connection,
@@ -86,10 +93,10 @@ export async function apiCall(
     data?: string;
   },
   signal: AbortSignal,
-  consume = false,
+  { consume = false, timeout }: CallOptions = {},
 ): Promise<unknown> {
   const result = envelope.parse(
-    await management(config, "api-call", { method: "POST", body: request, signal }),
+    await management(config, "api-call", { method: "POST", body: request, signal, timeout }),
   );
   if (result.status_code < 200 || result.status_code >= 300) {
     if (result.status_code >= 400 && result.status_code < 500 && result.status_code !== 408)
