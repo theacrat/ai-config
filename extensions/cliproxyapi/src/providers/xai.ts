@@ -1,10 +1,10 @@
 import type { Observation } from "../snapshot";
+import { Rejected } from "../upstream";
 import {
   first,
   firstText,
   instant,
   list,
-  LiveError,
   numeric,
   object,
   observe,
@@ -95,7 +95,7 @@ async function paidHealth(call: ProviderContext["call"]): Promise<Observation> {
     {
       method: "POST",
       url: "https://api.x.ai/v1/chat/completions",
-      header: { ...tokenHeader, accept: "application/json", "Content-Type": "application/json" },
+      header: { ...tokenHeader, Accept: "application/json", "Content-Type": "application/json" },
       data: JSON.stringify({
         model: "grok-4.5",
         messages: [{ role: "user", content: "ping" }],
@@ -103,7 +103,7 @@ async function paidHealth(call: ProviderContext["call"]): Promise<Observation> {
         stream: false,
       }),
     },
-    { timeout: 15000 },
+    { timeout: 8000 },
   );
   return {
     ...observe(Date.now(), []),
@@ -132,12 +132,8 @@ export const xai: Provider = {
       .flatMap((result) => (result.status === "fulfilled" ? result.value : []))
       .filter((reading, index, all) => all.findIndex((r) => r.id === reading.id) === index);
     if (readings.length) return { observation: observe(Date.now(), readings) };
-    const failure = results.find((result) => result.status === "rejected");
-    try {
-      return { observation: await paidHealth(call) };
-    } catch {
-      if (failure) throw failure.reason;
-      throw new LiveError("No billing quota reported");
-    }
+    for (const result of results)
+      if (result.status === "rejected" && !(result.reason instanceof Rejected)) throw result.reason;
+    return { observation: await paidHealth(call) };
   },
 };

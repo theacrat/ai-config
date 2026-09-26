@@ -244,6 +244,7 @@ describe("provider registry through CPA api-call", () => {
               { auth_index: "x", name: "x.json", provider: "Grok", sub: "user-7" },
               { auth_index: "q", name: "q.json", provider: "qwen" },
               { auth_index: "xp", name: "xp.json", provider: "xai" },
+              { auth_index: "xd", name: "xd.json", provider: "xai" },
               { auth_index: "p", name: "p.json", provider: "constructor" },
               { auth_index: "a", name: "ag.json", provider: "antigravity" },
             ],
@@ -266,10 +267,15 @@ describe("provider registry through CPA api-call", () => {
       for await (const chunk of req) raw += String(chunk);
       const call = callSchema.parse(JSON.parse(raw));
       calls.push(call);
-      const paidBilling = call.authIndex === "xp" && call.url.includes("grok.com");
+      const billing = call.url.includes("grok.com");
       res.end(
         JSON.stringify({
-          status_code: paidBilling ? 403 : 200,
+          status_code:
+            billing && call.authIndex === "xp"
+              ? 403
+              : billing && call.authIndex === "xd"
+                ? 503
+                : 200,
           body: JSON.stringify(bodies[call.url] ?? {}),
         }),
       );
@@ -291,6 +297,7 @@ describe("provider registry through CPA api-call", () => {
       ["xai", "fresh"],
       ["qwen", "unsupported"],
       ["xai", "fresh"],
+      ["xai", "error"],
       ["constructor", "unsupported"],
       ["antigravity", "fresh"],
     ]);
@@ -305,6 +312,9 @@ describe("provider registry through CPA api-call", () => {
     expect(calls.find((c) => c.authIndex === "d")?.data).toContain('"apiKey":"$TOKEN$"');
     expect(calls.find((c) => c.authIndex === "x")?.header["x-userid"]).toBe("user-7");
     expect(calls.filter((c) => c.authIndex === "q")).toEqual([]);
+    expect(calls.filter((c) => c.authIndex === "xd").map((c) => c.url)).not.toContain(
+      "https://api.x.ai/v1/chat/completions",
+    );
     expect(calls.filter((c) => c.authIndex === "x").map((c) => c.url)).not.toContain(
       "https://api.x.ai/v1/chat/completions",
     );

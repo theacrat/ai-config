@@ -1,6 +1,6 @@
-import type { CallOptions } from "../upstream";
 import { z } from "zod";
 import type { Account, Observation } from "../snapshot";
+import type { CallOptions } from "../upstream";
 
 const record = z.record(z.string(), z.unknown());
 export function object(value: unknown): Record<string, unknown> {
